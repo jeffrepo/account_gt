@@ -9,22 +9,30 @@
           <div class="article">
 <div class="page">
                         <div class="oe_structure"/>
+                             <div class="text-center mb16">
+                                  <img t-if="user.company_id.logo" 
+                                   t-att-src="'data:image/png;base64,%s' % user.company_id.logo" 
+                                   style="max-height: 100px;" 
+                                   alt="Logo de la compañía"/>
+                            </div>
                         <h2>Liquidacion: <span t-field="o.name"/></h2>
 
-                        <div class="row mt32 mb32">
-                            <div class="col-xs-4">
-                                <strong>Fecha:</strong><br/>
-                                <span t-field="o.fecha"/>
-                            </div>
-                            <div class="col-xs-4">
-                                <strong>Diario:</strong><br/>
-                                <span t-field="o.diario_id.name"/>
-                            </div>
-                            <div class="col-xs-4">
-                                <strong>Asiento:</strong><br/>
-                                <span t-field="o.move_id.name"/>
-                            </div>
-                        </div>
+                        <table class="table table-borderless mt32 mb32">
+                            <tbody>
+                                <tr>
+                                    <td style="white-space: nowrap;"><strong>Fecha:</strong> <span t-field="o.fecha"/></td>
+                                    <td style="white-space: nowrap;"><strong>Diario:</strong> <span t-field="o.diario_id.name"/></td>
+                                </tr>
+                                <tr>
+                                    <td style="white-space: nowrap;"><strong>Asiento:</strong> <span t-field="o.move_id.name"/></td>
+                                    <td style="white-space: nowrap;"><strong>Descripción:</strong> <span t-field="o.descripcion"/></td>
+                                </tr>
+                                <tr>
+                                    <td style="white-space: nowrap;"><strong>Reintegrar a:</strong> <!--<span t-field="o.partner_id.name"/>--></td>
+                                    <td style="white-space: nowrap;"><strong>Creado por:</strong> <span t-esc="user.name"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
 
                         <h3>Facturas</h3>
                         <t t-set="total_factura" t-value="0"/>
