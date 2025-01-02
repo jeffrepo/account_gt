@@ -6,7 +6,7 @@
       <field name="model">product.template</field>
       <field name="inherit_id" ref="product.product_template_only_form_view"/>
       <field name="arch" type="xml">
-        <xpath expr="//field[@name='detailed_type']" position="after">
+        <xpath expr="//field[@name='type']" position="after">
             <field name="es_activo" string="Es un activo?"/>
         </xpath>
       </field>
@@ -18,7 +18,7 @@
       <field name="model">product.product</field>
       <field name="inherit_id" ref="product.product_normal_form_view"/>
       <field name="arch" type="xml">
-        <xpath expr="//field[@name='detailed_type']" position="after">
+        <xpath expr="//field[@name='type']" position="after">
             <field name="es_activo" string="Es un activo?"/>
         </xpath>
       </field>

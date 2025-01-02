@@ -314,7 +314,7 @@ class LibroComprasWizard(models.TransientModel):
 #                             if lineas_proveedor.product_id.es_activo:
 #                                 total_base_linea = lineas_proveedor.quantity * lineas_proveedor.price_unit;
 #                                 iva_linea = total_base_linea - lineas_proveedor.price_subtotal
-#                             if lineas_proveedor.product_id.detailed_type == 'service':
+#                             if lineas_proveedor.product_id.type == 'service':
 #                                 total_base_linea = lineas_proveedor.quantity * lineas_proveedor.price_unit;
 #                                 iva_linea = total_base_linea - lineas_proveedor.price_subtotal
 #                         dicc_proveedores[proveedor.partner_id.id]['base'] += total_base_linea;

@@ -6,13 +6,13 @@
         <record id="view_account_gt_liquidacion_tree" model="ir.ui.view">
             <field name="name">account_gt.liquidacion.tree</field>
             <field name="model">account_gt.liquidacion</field>
-            <field name="type">tree</field>
+            <field name="type">list</field>
             <field name="arch" type="xml">
-                <tree string="Liquidaciones">
+                <list string="Liquidaciones">
                     <field name="name"/>
                     <field name="fecha"/>
                     <field name="state"/>
-                </tree>
+                </list>
             </field>
         </record>
 
@@ -51,18 +51,18 @@
                         <notebook>
                             <page string="Facturas" name="facturas">
                                 <field name="factura_ids">
-                                    <tree editable="bottom">
+                                    <list editable="bottom">
                                         <field name="factura_id"/>
                                         <field name="total" sum="total"/>
-                                    </tree>
+                                    </list>
                                 </field>
                             </page>
                             <page string="Pagos" name="pagos">
                                 <field name="pago_ids">
-                                    <tree editable="bottom">
+                                    <list editable="bottom">
                                         <field name="pago_id"/>
                                         <field name="total"/>
-                                    </tree>
+                                    </list>
                                 </field>
                             </page>
                         </notebook>

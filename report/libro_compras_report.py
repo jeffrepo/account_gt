@@ -177,13 +177,13 @@ class LibroCompras(models.AbstractModel):
                             producto_activo = 0
                             iva_general = 0
                             for linea in compra.invoice_line_ids:
-                                if linea.product_id.detailed_type == 'consu' and linea.product_id.es_activo == False:
+                                if linea.product_id.type == 'consu' and linea.product_id.es_activo == False:
                                     producto_compra += linea.price_subtotal
                                     iva_general += linea.price_total - linea.price_subtotal
-                                if linea.product_id.detailed_type == 'service' and linea.product_id.es_activo == False:
+                                if linea.product_id.type == 'service' and linea.product_id.es_activo == False:
                                     producto_servicio += linea.price_subtotal
                                     iva_general += linea.price_total - linea.price_subtotal
-                                if linea.product_id.detailed_type == 'consu' and linea.product_id.es_activo:
+                                if linea.product_id.type == 'consu' and linea.product_id.es_activo:
                                     producto_activo += linea.price_subtotal
                                     iva_general += linea.price_total - linea.price_subtotal
 
@@ -209,7 +209,7 @@ class LibroCompras(models.AbstractModel):
                             duca_exentos=0
                             for linea_duca in compra.invoice_line_ids:
                                 if linea_duca.tax_ids:
-                                    if linea_duca.product_id.detailed_type == 'service' or linea_duca.product_id.detailed_type == 'consu':
+                                    if linea_duca.product_id.type == 'service' or linea_duca.product_id.type == 'consu':
                                         servicio_duca += linea_duca.price_subtotal
                                         iva_duca += linea_duca.price_total - linea_duca.price_subtotal
                                 elif 'DAI' in linea_duca.product_id.name:
@@ -247,11 +247,11 @@ class LibroCompras(models.AbstractModel):
                                     logging.warning('R-----------------')
                                     logging.warning(r)
                                 total_fe += lineas.quantity * lineas.price_unit
-                                if lineas.product_id.es_activo and lineas.product_id.detailed_type == 'consu' or lineas.product_id.es_activo == False and lineas.product_id.detailed_type == 'consu':
+                                if lineas.product_id.es_activo and lineas.product_id.type == 'consu' or lineas.product_id.es_activo == False and lineas.product_id.type == 'consu':
 
                                     total_exento += lineas.price_subtotal
                                     subtotal_fe = total_exento
-                                if (lineas.product_id.detailed_type in ['service','product']) and lineas.product_id.es_activo == False:
+                                if (lineas.product_id.type in ['service','product']) and lineas.product_id.es_activo == False:
 
                                     total_servicio += lineas.price_subtotal
                                     subtotal_fe = total_servicio
@@ -351,15 +351,15 @@ class LibroCompras(models.AbstractModel):
                                                 logging.warning(r)
                                             if compra.tipo_factura == 'varios':
 
-                                                if linea.product_id.detailed_type == 'product':
+                                                if linea.product_id.type == 'product':
                                                     dic['compra'] += linea.price_subtotal
-                                                if linea.product_id.detailed_type != 'product':
+                                                if linea.product_id.type != 'product':
                                                     dic['servicio'] +=  linea.price_subtotal
                                             elif compra.tipo_factura == 'importacion':
 
                                                 dic['importacion'] += linea.price_subtotal
 #                                               if compra.tipo_factura == 'combustible':
-                                            elif compra.tipo_factura == 'combustible' and linea.product_id.detailed_type == 'consu':
+                                            elif compra.tipo_factura == 'combustible' and linea.product_id.type == 'consu':
                                                 
                                                 #crea un diccionario 
                                                 datos_json = json.loads(compra.tax_totals_json)
@@ -395,11 +395,11 @@ class LibroCompras(models.AbstractModel):
                                                     iva_prod += total_act - linea.price_subtotal
                                                     dic['iva'] = iva_prod
                                                 else:
-                                                    if linea.product_id.detailed_type == 'product' :
+                                                    if linea.product_id.type == 'product' :
                                                         dic['compra'] += linea.price_subtotal
-                                                    if linea.product_id.detailed_type != 'product' and linea.product_id.detailed_type != 'consu':
+                                                    if linea.product_id.type != 'product' and linea.product_id.type != 'consu':
                                                         dic['servicio'] +=  linea.price_subtotal
-                                                    if linea.product_id.detailed_type == 'consu' and linea.product_id.es_activo == False:
+                                                    if linea.product_id.type == 'consu' and linea.product_id.es_activo == False:
 
                                                         dic['compra'] +=  linea.price_subtotal
 
