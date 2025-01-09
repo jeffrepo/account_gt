@@ -54,7 +54,7 @@ class LibroVentas(models.AbstractModel):
                         total_tax_currency += line.amount_currency
                         total += line.balance
                         total_currency += line.amount_currency
-                    elif line.account_id.user_type_id.move_type in ('receivable', 'payable'):
+                    elif line.account_id.account_type.move_type in ('receivable', 'payable'):
                         # Residual amount.
                         total_residual += line.amount_residual
                         total_residual_currency += line.amount_residual_currency
@@ -205,8 +205,8 @@ class LibroVentas(models.AbstractModel):
                         reten_iva = self.env['account.move'].search([('ref','=', str(compra.name))])
                         if reten_iva and compra.state != 'cancel':
                             for linea in reten_iva.line_ids:
-                                logging.warn(linea.account_id.user_type_id.name)
-                                if linea.account_id.user_type_id.name == 'Activos Circulantes':
+                                logging.warn(linea.account_id.account_type.name)
+                                if linea.account_id.account_type.name == 'Activos Circulantes':
                                     dic['reten_iva'] += linea.debit
                                     total['reten_iva'] += linea.debit
 
