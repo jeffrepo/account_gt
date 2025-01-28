@@ -132,13 +132,16 @@ class LibroCompras(models.AbstractModel):
                                 factura = compra.ref.split('/')[0]
                                 documento = compra.ref.split('/')[1]
                             else:
-                                modulo_fel = self.env['ir.module.module'].search([('name', '=', 'infilefel')])
-                                if modulo_fel and modulo_fel.state == 'installed':
-                                    factura = compra.fel_serie
-                                    documento = compra.fel_numero
-                                else:
-                                    factura = ''
-                                    documento = ''
+                                factura = compra.fel_serie
+                                documento = compra.fel_numero         
+                        else:
+                            modulo_fel = self.env['ir.module.module'].search([('name', '=', 'infilefel')])
+                            if modulo_fel and modulo_fel.state == 'installed':
+                                factura = compra.fel_serie
+                                documento = compra.fel_numero
+                            else:
+                                factura = ''
+                                documento = ''
                         if documento == '' and compra.journal_id.tipo_factura == 'FESP' and compra.fel_numero:
                                 documento = compra.fel_numero
                             
