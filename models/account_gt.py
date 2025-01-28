@@ -183,3 +183,9 @@ class LiquidacionPago(models.Model):
     pago_id = fields.Many2one('account.payment','Pago')
     currency_id = fields.Many2one('res.currency',string='moneda', related='pago_id.currency_id')
     total = fields.Monetary('Total',related='pago_id.amount')
+
+class ResCompany(models.Model):
+    _inherit = "res.company"
+
+    columna_farmacia_exento_ventas = fields.Boolean('Columna farmacia exento')
+    gastos_no_deducibles = fields.Boolean('Mostrar gastos no deducibles Libro compras')
