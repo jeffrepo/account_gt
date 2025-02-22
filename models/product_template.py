@@ -15,3 +15,4 @@ class ProductTemplate(models.Model):
     _inherit = "product.template"
 
     es_activo = fields.Boolean(string='Es un activo?', default=False)
+    farmacia_exento = fields.Boolean('Farmacia exento')
