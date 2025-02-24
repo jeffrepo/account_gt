@@ -231,7 +231,7 @@ class LibroCompras(models.AbstractModel):
                             logging.warning(compra.name)
                             logging.warning(compra.id)
                             logging.warning(compra.fel_serie)
-                            logging.warning(compra.tax_totals_json)
+                            logging.warning(compra.tax_totals)
                             logging.warning(dic)
                             logging.warning('')
                             if compra.id == dic['id']:
@@ -362,13 +362,12 @@ class LibroCompras(models.AbstractModel):
                                             elif compra.tipo_factura == 'combustible' and linea.product_id.detailed_type == 'consu':
                                                 
                                                 #crea un diccionario 
-                                                datos_json = json.loads(compra.tax_totals_json)
+                                                datos_json = compra.tax_totals
                                                 if 'amount_untaxed' in datos_json:
                                                     dic['combustible']=datos_json['amount_untaxed']
                                                 
                                                 for linea_contable in compra.line_ids:
-                                                    if 5 in linea_contable.account_id.user_type_id.get_external_id():
-                                                        logging.warning('Ingresando en alguna parteeeee')    
+                                                    if linea_contable.account_id.account_type == "expense": 
                                                         dic['iva'] = linea_contable.debit
                                                         x = datos_json['amount_total'] - dic['iva']
                                                         dic['compra_exento'] = x - dic['combustible']
