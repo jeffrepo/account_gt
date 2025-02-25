@@ -67,7 +67,7 @@ class LibroDiarioWizard(models.TransientModel):
 
                 fila = 7
                 for diario in reporte_data:
-                    if "es_GT" in reporte_data[diario]['diario']['es_GT']:
+                    if "es_GT" in reporte_data[diario]['diario']:
                         hoja.write(fila, 0, reporte_data[diario]['diario']['es_GT'])
                     else:
                         hoja.write(fila, 0, reporte_data[diario]['diario']['en_US'])
