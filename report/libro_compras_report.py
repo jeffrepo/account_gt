@@ -1,553 +1,407 @@
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
-from odoo import api, models
-from odoo.exceptions import UserError
+from odoo import models, fields, api
+import xlsxwriter
+import base64
+import io
 import logging
-from datetime import datetime
-import json
 
-
-class LibroCompras(models.AbstractModel):
-    _name = 'report.account_gt.reporte_libro_compras'
-
-
-    def _get_conversion(self,move_id):
-        conversion = {'impuesto': 0,'total':0 }
-        total_sin_impuesto = 0
-        total_total = 0
-
-
-        amount_untaxed = 0
-        amount_tax = 0
-        amount_total = 0
-        amount_residual = 0
-        amount_untaxed_signed = 0
-        amount_tax_signed = 0
-        amount_total_signed = 0
-        amount_residual_signed = 0
-
-
-        for move in move_id:
-            total_untaxed = 0.0
-            total_untaxed_currency = 0.0
-            total_tax = 0.0
-            total_tax_currency = 0.0
-            total_residual = 0.0
-            total_residual_currency = 0.0
-            total = 0.0
-            total_currency = 0.0
-            currencies = set()
-
-            for line in move.line_ids:
-                if line.currency_id:
-                    currencies.add(line.currency_id)
-
-                if move.is_invoice(include_receipts=True):
-                    # === Invoices ===
-
-                    if not line.exclude_from_invoice_tab:
-                        # Untaxed amount.
-                        total_untaxed += line.balance
-                        total_untaxed_currency += line.amount_currency
-                        total += line.balance
-                        total_currency += line.amount_currency
-                    elif line.tax_line_id:
-                        # Tax amount.
-                        total_tax += line.balance
-                        total_tax_currency += line.amount_currency
-                        total += line.balance
-                        total_currency += line.amount_currency
-                    elif line.account_id.user_type_id.move_type in ('receivable', 'payable'):
-                        # Residual amount.
-                        total_residual += line.amount_residual
-                        total_residual_currency += line.amount_residual_currency
-                else:
-                    # === Miscellaneous journal entry ===
-                    if line.debit:
-                        total += line.balance
-                        total_currency += line.amount_currency
-
-            if move.move_type == 'entry' or move.is_outbound():
-                sign = 1
-            else:
-                sign = -1
-
-
-            amount_untaxed = sign * (total_untaxed_currency if len(currencies) == 1 else total_untaxed)
-            amount_tax = sign * (total_tax_currency if len(currencies) == 1 else total_tax)
-            amount_total = sign * (total_currency if len(currencies) == 1 else total)
-            amount_residual = -sign * (total_residual_currency if len(currencies) == 1 else total_residual)
-            amount_untaxed_signed = -total_untaxed
-            amount_tax_signed = -total_tax
-            amount_total_signed = abs(total) if move.move_type == 'entry' else -total
-            amount_residual_signed = total_residual
-
-
-            if amount_residual_signed < 0:
-                conversion['impuesto'] = (amount_tax_signed *-1)
-                conversion['total'] = amount_residual_signed * -1
-            else:
-                conversion['impuesto'] = (amount_tax_signed)
-                conversion['total'] = amount_residual_signed
-
-
-        return conversion
-
-
-    def _get_impuesto_iva(self,tax_ids):
-        impuesto_iva = False
-        if len(tax_ids) > 0:
-            for linea in tax_ids:
-                if 'IVA' in linea.name:
-                    impuesto_iva = True
-
-        return impuesto_iva
-
-    def _get_compras(self,datos):
-        compras_lista = []
-        gastos_no_lista = []
-        logging.warning('Bienvenido a la funcion de libro compras')
-        compra_ids = self.env['account.move'].search([
-        ('company_id','=',self.env.company.id),
-        ('date','<=',datos['fecha_fin']),
-        ('date','>=',datos['fecha_inicio']),
-        ('state','=','posted'),
-        ('move_type','in',['in_invoice','in_refund'])] ,order='invoice_date asc')
-        total = {'compra':0,'compra_exento':0,'servicio':0,'servicio_exento':0,'importacion':0,'pequenio':0, 'combustible':0, 'activo':0,'iva':0,'total':0}
-        total_gastos_no = 0
-        documentos_operados = 0
-        if compra_ids:
-                for compra in compra_ids:
-                    if compra.journal_id.tipo_factura != False and compra.journal_id.tipo_factura != "RECI":
-                        formato_fecha = compra.invoice_date.strftime('%d/%m/%Y')
-                        rectificativa=False
-                        factura = ''
-                        documento = ''
-                        doc_ref = ''
-                        if compra.ref:
-                            if '-' in compra.ref:
-                                factura = compra.ref.split('-')[0]
-                                documento = compra.ref.split('-')[1]
-                            elif '/' in compra.ref:
-                                factura = compra.ref.split('/')[0]
-                                documento = compra.ref.split('/')[1]
-                            else:
-                                modulo_fel = self.env['ir.module.module'].search([('name', '=', 'infilefel')])
-                                if modulo_fel and modulo_fel.state == 'installed':
-                                    factura = compra.fel_serie
-                                    documento = compra.fel_numero
-                                else:
-                                    factura = ''
-                                    documento = ''
-                        if documento == '' and compra.journal_id.tipo_factura == 'FESP' and compra.fel_numero:
-                                documento = compra.fel_numero
-                            
-                        documentos_operados += 1
-                        if compra.journal_id:
-                            doc_ref = compra.journal_id.tipo_factura
-                        if compra.move_type == 'in_refund':
-                            rectificativa=True
-
-                        dic = {
-                            'id': compra.id,
-                            'fecha': formato_fecha,
-                            'serie': factura,
-                            'factura': documento,
-                            'documento': doc_ref,
-                            'proveedor': compra.partner_id.name if compra.partner_id else '',
-                            'nit': compra.partner_id.vat if compra.partner_id.vat else '',
-                            'compra': 0,
-                            'compra_exento':0,
-                            'servicio': 0,
-                            'servicio_exento': 0,
-                            'importacion': 0,
-                            'pequenio': 0,
-                            'combustible':0,
-                            'activo':0,
-                            'iva': 0,
-                            'total': 0,
-                            'rectificativa':rectificativa
-                        }
-
-#        Si la factura es nota de credito si es consumible y activo es igual a false
-
-                        if dic['rectificativa']:
-                            producto_compra = 0
-                            producto_servicio = 0
-                            producto_activo = 0
-                            iva_general = 0
-                            for linea in compra.invoice_line_ids:
-                                if linea.product_id.detailed_type == 'consu' and linea.product_id.es_activo == False:
-                                    producto_compra += linea.price_subtotal
-                                    iva_general += linea.price_total - linea.price_subtotal
-                                if linea.product_id.detailed_type == 'service' and linea.product_id.es_activo == False:
-                                    producto_servicio += linea.price_subtotal
-                                    iva_general += linea.price_total - linea.price_subtotal
-                                if linea.product_id.detailed_type == 'consu' and linea.product_id.es_activo:
-                                    producto_activo += linea.price_subtotal
-                                    iva_general += linea.price_total - linea.price_subtotal
-
-                            dic['compra']=producto_compra
-                            dic['activo']=producto_activo
-                            dic['servicio']=producto_servicio
-                            dic['iva']=iva_general
-
-#                         if compra.tipo_factura == 'combustible':
-#                             dic['combustible']+=(compra.amount_untaxed_signed*-1)
-#                             iva = (compra.amount_total_signed*-1)+ compra.amount_untaxed_signed
-#                             dic['iva']+= iva
-
-                        if compra.tipo_factura == 'activo' and compra.journal_id.tipo_factura != 'FESP':
-                            dic['activo']+=(compra.amount_untaxed_signed*-1)
-                            iva = (compra.amount_total_signed*-1)+ compra.amount_untaxed_signed
-                            dic['iva']+= iva
-
-
-                        if compra.journal_id.tipo_factura == 'DUCA':
-                            servicio_duca=0
-                            iva_duca=0
-                            duca_exentos=0
-                            for linea_duca in compra.invoice_line_ids:
-                                if linea_duca.tax_ids:
-                                    if linea_duca.product_id.detailed_type == 'service' or linea_duca.product_id.detailed_type == 'consu':
-                                        servicio_duca += linea_duca.price_subtotal
-                                        iva_duca += linea_duca.price_total - linea_duca.price_subtotal
-                                elif 'DAI' in linea_duca.product_id.name:
-                                    duca_exentos += linea_duca.price_total
-                            dic['importacion']=servicio_duca
-                            dic['compra_exento']=duca_exentos
-                            dic['iva']= iva_duca
-
-
-
-
-                        total_factura_especial=0
-                        total_servicio=0
-                        fctura_distinta = False
-                        total_exento=0
-                        iva_fe = 0
-                        if compra.journal_id.tipo_factura == 'FESP':
-                            logging.warning('Hiiiiiii')
-                            logging.warning(compra.name)
-                            logging.warning(compra.id)
-                            logging.warning(compra.fel_serie)
-                            logging.warning(compra.tax_totals)
-                            logging.warning(dic)
-                            logging.warning('')
-                            if compra.id == dic['id']:
-                                if self.env['account.move'].fields_get('fel_serie'):
-                                    dic['serie']=compra.fel_serie
-                            fctura_distina = False
-                            iva=0
-                            total_fe=0
-                            subtotal_fe=0
-                            for lineas in compra.invoice_line_ids:
-                                r = lineas.tax_ids.compute_all(lineas.price_unit, currency=compra.currency_id, quantity=lineas.quantity, product=lineas.product_id, partner=compra.partner_id)
-                                if compra.id == 6435:
-                                    logging.warning('R-----------------')
-                                    logging.warning(r)
-                                total_fe += lineas.quantity * lineas.price_unit
-                                if lineas.product_id.es_activo and lineas.product_id.detailed_type == 'consu' or lineas.product_id.es_activo == False and lineas.product_id.detailed_type == 'consu':
-
-                                    total_exento += lineas.price_subtotal
-                                    subtotal_fe = total_exento
-                                if (lineas.product_id.detailed_type in ['service','product']) and lineas.product_id.es_activo == False:
-
-                                    total_servicio += lineas.price_subtotal
-                                    subtotal_fe = total_servicio
-                            
-                            iva_fe = total_fe - subtotal_fe
-
-                            dic['compra_exento'] = total_exento
-                            dic['servicio'] = total_servicio
-                            dic['iva'] = iva_fe
-#                         compra.tipo_factura = 'combustible' and
-                            
-                        if compra.journal_id.tipo_factura != 'FESP' and compra.journal_id.tipo_factura == 'FACT':
-                            for linea in compra.invoice_line_ids:
-                                impuesto_iva = False
-                                impuesto_iva = self._get_impuesto_iva(linea.tax_ids)
-                                if compra.currency_id.id != compra.company_id.currency_id.id:
-                                    if ((linea.product_id) and (('COMISION POR SERVICIOS' not in linea.product_id.name) or ('COMISIONES BANCARIAS' not in linea.product_id.name) or ('Servicios y Comisiones' not in linea.product_id.name))):
-                                        if len(linea.tax_ids) > 0:
-
-                                            monto_convertir_precio = compra.currency_id.with_context(date=compra.invoice_date).compute(linea.price_unit, compra.company_id.currency_id)
-
-                                            r = linea.tax_ids.compute_all(monto_convertir_precio, currency=compra.currency_id, quantity=linea.quantity, product=linea.product_id, partner=compra.partner_id)
-                                            if compra.id == 7167:
-                                                logging.warning('Que es r?')
-                                                logging.warning(r)
-                                            for i in r['taxes']:
-                                                if 'IVA' in i['name']:
-                                                    dic['iva'] += i['amount']
-
-                                            monto_convertir = compra.currency_id.with_context(date=compra.invoice_date).compute(linea.price_subtotal, compra.company_id.currency_id)
-
-                                            if compra.tipo_factura == 'varios':
-                                                if linea.product_id.type == 'product':
-                                                    dic['compra'] += monto_convertir
-                                                if linea.product_id.type != 'product':
-                                                    dic['servicio'] +=  monto_convertir
-                                            elif compra.tipo_factura == 'importacion':
-                                                dic['importacion'] += monto_convertir
-
-                                            else:
-                                                if linea.product_id.type == 'product':
-                                                    dic['compra'] += monto_convertir
-                                                if linea.product_id.type != 'product':
-                                                    dic['servicio'] +=  monto_convertir
-
-
-
-                                            if compra.partner_id.pequenio_contribuyente:
-                                                dic['compra'] = 0
-                                                dic['servicio'] = 0
-                                                dic['importacion'] = 0
-                                                dic['pequenio'] += monto_convertir
-
-                                            # dic['total']
-                                            
-                                        else:
-                                            monto_convertir = compra.currency_id.with_context(date=compra.invoice_date).compute(linea.price_total, compra.company_id.currency_id)
-
-                                            if compra.tipo_factura == 'varios':
-                                                if linea.product_id.type == 'product':
-                                                    dic['compra'] += monto_convertir
-                                                if linea.product_id.type != 'product':
-                                                    dic['servicio'] +=  monto_convertir
-                                            elif compra.tipo_factura == 'importacion':
-                                                dic['importacion'] += monto_convertir
-
-                                            else:
-                                                if linea.product_id.type == 'product':
-                                                    dic['compra_exento'] += monto_convertir
-                                                if linea.product_id.type != 'product':
-                                                    dic['servicio_exento'] +=  monto_convertir
-
-
-
-                                            if compra.partner_id.pequenio_contribuyente:
-                                                dic['compra'] = 0
-                                                dic['servicio'] = 0
-                                                dic['importacion'] = 0
-                                                dic['compra_exento'] = 0
-                                                dic['servicio_exento'] = 0
-                                                dic['pequenio'] += monto_convertir
-
-                                else:
-                                    total_act=0
-
-                                    if linea.product_id:
-                                        if len(linea.tax_ids) > 0:
-
-                                            r = linea.tax_ids.compute_all(linea.price_unit, currency=compra.currency_id, quantity=linea.quantity, product=linea.product_id, partner=compra.partner_id)
-
-                                            for i in r['taxes']:
-                                                if 'IVA' in i['name']:
-                                                    dic['iva'] += i['amount']
-                                            logging.warning('Tal vez else')
-                                            if compra.id == 6435:
-                                                logging.warning('Factura buscada')
-                                                logging.warning(r)
-                                            if compra.tipo_factura == 'varios':
-
-                                                if linea.product_id.detailed_type == 'product':
-                                                    dic['compra'] += linea.price_subtotal
-                                                if linea.product_id.detailed_type != 'product':
-                                                    dic['servicio'] +=  linea.price_subtotal
-                                            elif compra.tipo_factura == 'importacion':
-
-                                                dic['importacion'] += linea.price_subtotal
-#                                               if compra.tipo_factura == 'combustible':
-                                            elif compra.tipo_factura == 'combustible' and linea.product_id.detailed_type == 'consu':
-                                                
-                                                #crea un diccionario 
-                                                datos_json = compra.tax_totals
-                                                if 'amount_untaxed' in datos_json:
-                                                    dic['combustible']=datos_json['amount_untaxed']
-                                                
-                                                for linea_contable in compra.line_ids:
-                                                    if linea_contable.account_id.account_type == "expense": 
-                                                        dic['iva'] = linea_contable.debit
-                                                        x = datos_json['amount_total'] - dic['iva']
-                                                        dic['compra_exento'] = x - dic['combustible']
-                                                    
-#                                                 precio = ( linea.price_unit * (1-(linea.discount or 0.0)/100.0) )
-#                                                 precios = linea.tax_ids.compute_all(precio, currency=compra.currency_id, quantity=linea.quantity, product=linea.product_id, partner=compra.partner_id)
-#                                                 iva_cobrar = 0
-#                                                 idp_super = 0
-#                                                 for impuesto in precios['taxes']:
-#                                                     if impuesto['name'] ==  'IVA por Cobrar':
-#                                                         iva_cobrar += impuesto['amount']
-#                                                     if impuesto['name'] ==  'IDP Super':
-#                                                         idp_super += impuesto['amount']
-#                                                 dic['combustible']+=(compra.amount_untaxed_signed*-1)
-# #                                                 iva = (compra.amount_total_signed*-1)+ compra.amount_untaxed_signed
-#                                                 dic['iva'] = iva_cobrar
-#                                                 dic['compra_exento'] = idp_super
-# #                                                 dic['iva']+= iva
-                                            else:
-                                                iva_prod=0
-                                                if linea.product_id.es_activo:
-                                                    dic['activo'] += linea.price_subtotal
-                                                    total_act = linea.quantity * linea.price_unit
-                                                    iva_prod += total_act - linea.price_subtotal
-                                                    dic['iva'] = iva_prod
-                                                else:
-                                                    if linea.product_id.detailed_type == 'product' :
-                                                        dic['compra'] += linea.price_subtotal
-                                                    if linea.product_id.detailed_type != 'product' and linea.product_id.detailed_type != 'consu':
-                                                        dic['servicio'] +=  linea.price_subtotal
-                                                    if linea.product_id.detailed_type == 'consu' and linea.product_id.es_activo == False:
-
-                                                        dic['compra'] +=  linea.price_subtotal
-
-                                            if compra.partner_id.pequenio_contribuyente:
-                                                dic['compra'] = 0
-                                                dic['servicio'] = 0
-                                                dic['importacion'] = 0
-                                                dic['compra_exento'] = 0
-                                                dic['servicio_exento'] = 0
-                                                dic['pequenio'] += linea.price_total
-
-
-                                        else:
-                                            if linea.product_id.type == 'product':
-                                                dic['compra_exento'] += linea.price_total
-                                            if linea.product_id.type != 'product':
-                                                dic['servicio_exento'] +=  linea.price_total
-
-
-                                            if compra.partner_id.pequenio_contribuyente:
-                                                dic['compra'] = 0
-                                                dic['servicio'] = 0
-                                                dic['importacion'] = 0
-                                                dic['compra_exento'] = 0
-                                                dic['servicio_exento'] = 0
-                                                dic['pequenio'] += linea.price_total
-
-
-
-
-                        if compra.move_type in ['in_refund']:
-                            dic['compra']  = dic['compra'] * -1
-                            dic['compra_exento'] = dic['compra_exento'] * -1
-                            dic['servicio'] =  dic['servicio'] * -1
-                            dic['servicio_exento'] = dic['servicio_exento'] * -1
-                            dic['importacion'] = dic['importacion'] * -1
-                            dic['pequenio'] = dic['pequenio'] * -1
-                            dic['iva'] = dic['iva'] * -1
-                            dic['total'] = dic['total'] * -1
-
-
-
-                        total['compra'] += dic['compra']
-                        total['compra_exento'] += dic['compra_exento']
-                        total['servicio'] += dic['servicio']
-                        total['servicio_exento'] += dic['servicio_exento']
-                        total['importacion'] += dic['importacion']
-                        total['pequenio'] += dic['pequenio']
-                        total['combustible'] += dic['combustible']
-                        total['activo'] += dic['activo']
-                        total['iva'] += dic['iva']
-                        compras_lista.append(dic)
-                        dic['total'] = dic['activo'] + dic['combustible'] + dic['compra'] + dic['servicio'] + dic['compra_exento'] + dic['servicio_exento'] + dic['importacion'] + dic['iva'] + dic['pequenio']
-                        total['total'] += dic['total']
-
-                    else:
-                        # GASTOS NO DEDUCIBLES
-                        dic = {
-                            'id': compra.id,
-                            'fecha': compra.date,
-                            'documento': compra.name,
-                            'proveedor': compra.partner_id.name if compra.partner_id else '',
-                            'nit': compra.partner_id.vat if compra.partner_id.vat else '',
-                            'total': compra.amount_total
-                        }
-                        total_gastos_no += compra.amount_total
-                        gastos_no_lista.append(dic)
-        
-        dicc_resumen_total={
-            0:{
-                'total_iva_combustible':0,
-                'total_combustible':0
-                },
-            1:{
-                'total_iva_compras':0,
-                'total_compras':0
-            },
-            2:{
-                'total_iva_servicio':0,
-                'total_servicio':0
-            },
-            3:{
-                'total_iva_pequenio':0,
-                'total_pequenio':0
-            },
-            4:{
-                'total_iva_importaciones':0,
-                'total_importaciones':0
-            },
-            5:{
-                'total_iva_vehiculos':0,
-                'total_vehiculos':0
-            },
-            6:{
-                'total_iva_exento':0,
-                'total_exento':0
-            }
+class LibroComprasWizard(models.TransientModel):
+    _name = 'account_gt.libro_compras.wizard'
+    _description = "Wizard para libro de compras"
+
+    fecha_inicio = fields.Date('Fecha inicio')
+    fecha_fin = fields.Date('Fecha fin')
+    name = fields.Char('Nombre archivo', size=32)
+    archivo = fields.Binary('Archivo', filters='.xls')
+
+    def print_report(self):
+        data = {
+             'ids': [],
+             'model': 'account_gt.libro_compras.wizard',
+             'form': self.read()[0]
         }
+        return self.env.ref('account_gt.action_libro_compras').report_action([], data=data)
 
-        for lista in compras_lista:
-            total_combustible=0
-            total_compras=0
-            total_servicio=0
-            for id_compra in lista:
-                if id_compra == 'combustible':
-                    if lista['combustible']>0:
-                        dicc_resumen_total[0]['total_iva_combustible']+=lista['iva']
-                        dicc_resumen_total[0]['total_combustible']+=lista['total']
-                if id_compra == 'compra':
-                    if lista['compra']>0:
-                        dicc_resumen_total[1]['total_iva_compras']+=lista['iva']
-                        dicc_resumen_total[1]['total_compras']+=lista['total']
-                if id_compra == 'servicio':
-                    if lista['servicio']>0:
-                        dicc_resumen_total[2]['total_iva_servicio']+=lista['iva']
-                        dicc_resumen_total[2]['total_servicio']+=lista['total']
-                if id_compra == 'pequenio':
-                    if lista['pequenio']>0:
-                        dicc_resumen_total[3]['total_iva_pequenio']+=lista['iva']
-                        dicc_resumen_total[3]['total_pequenio']+=lista['total']
-                if id_compra == 'importacion':
-                    if lista['importacion']>0:
-                        dicc_resumen_total[4]['total_iva_importaciones']+=lista['iva']
-                        dicc_resumen_total[4]['total_importaciones']+=lista['total']
-                if id_compra == 'activo':
-                    if lista['activo']>0:
-                        dicc_resumen_total[5]['total_iva_vehiculos']+=lista['iva']
-                        dicc_resumen_total[5]['total_vehiculos']+=lista['total']
-                if id_compra == 'compra_exento':
-                    if lista['compra_exento']>0:
-                        dicc_resumen_total[6]['total_iva_exento']+=lista['iva']
-                        dicc_resumen_total[6]['total_exento']+=lista['total']
 
-        if dic['id'] == 6435:
-            logging.warning('Prestar atención ')
-            logging.warning(dic)
-        return {'compras_lista': compras_lista,'total': total,'documentos_operados':documentos_operados,'resumen_total':dicc_resumen_total,'gastos_no': gastos_no_lista,'total_gastos_no': total_gastos_no}
+    def print_report_excel(self):
+        for w in self:
+            dict = {}
+            dict['fecha_inicio'] = w.fecha_inicio
+            dict['fecha_fin'] = w.fecha_fin
+            # dict['impuesto_id'] = [w.impuesto_id.id, w.impuesto_id.name]
+            # dict['diarios_id'] =[x.id for x in w.diarios_id]
 
-    @api.model
-    def _get_report_values(self, docids, data=None):
-        model = self.env.context.get('active_model')
-        docs = self.env[model].browse(self.env.context.get('active_ids', []))
+            res = self.env['report.account_gt.reporte_libro_compras']._get_compras(dict)
+
+            f = io.BytesIO()
+            libro = xlsxwriter.Workbook(f)
+            hoja = libro.add_worksheet('Reporte compras')
+
+            hoja.write(0, 0, 'LIBRO DE COMPRAS Y SERVICIOS')
+            hoja.write(2, 0, 'NUMERO DE IDENTIFICACION TRIBUTARIA')
+            hoja.write(2, 1, self.env.company.vat)
+            hoja.write(3, 0, 'NOMBRE COMERCIAL')
+            hoja.write(3, 1,  self.env.company.name)
+#             hoja.write(2, 3, 'DOMICILIO FISCAL')
+#             hoja.write(2, 4,  self.env.company.street)
+            hoja.write(3, 3, 'REGISTRO DEL')
+            formato_fecha_inicio = w.fecha_inicio.strftime('%d/%m/%Y')
+            formato_fecha_fin = w.fecha_fin.strftime('%d/%m/%Y')
+            hoja.write(3, 4, formato_fecha_inicio + ' al ' + formato_fecha_fin)
+
+
+
+            hoja.write(5, 0, 'Fecha')
+            hoja.write(5, 1, 'Serie')
+            hoja.write(5, 2, 'Factura')
+            hoja.write(5, 3, 'Documento')
+            hoja.write(5, 4, 'NIT')
+            hoja.write(5, 5, 'Proveedor')
+            hoja.write(5, 6, 'Combustible')
+            hoja.write(5, 7, 'Compras')
+            logging.warning("exento")
+            logging.warning(self.env.company.columna_farmacia_exento_ventas)
+            if self.env.company.columna_farmacia_exento_ventas:
+                hoja.write(5, 8, 'Medicamentos genericos')
+                hoja.write(5, 9, 'Exentos')
+                hoja.write(5, 10, 'Servicios')
+                hoja.write(5, 11, 'Servicios exentos')
+                hoja.write(5, 12, 'Importacion')
+                hoja.write(5, 13, 'Pequeño contribuyente')
+                hoja.write(5, 14, 'Activos')
+                hoja.write(5, 15, 'IVA')
+                hoja.write(5, 16, 'Total')
+            else:
+                hoja.write(5, 8, 'Exentos')
+                hoja.write(5, 9, 'Servicios')
+                hoja.write(5, 10, 'Servicios exentos')
+                hoja.write(5, 11, 'Importacion')
+                hoja.write(5, 12, 'Pequeño contribuyente')
+                hoja.write(5, 13, 'Activos')
+                hoja.write(5, 14, 'IVA')
+                hoja.write(5, 15, 'Total')
+
+            fila = 6
+            iva_proveedor=0
+            iva_combustible=0
+            iva_compra=0
+            iva_servicios=0
+            iva_pequenio=0
+            iva_importaciones=0
+            iva_exento=0
+            iva_activo=0
+            for compra in res['compras_lista']:
+                hoja.write(fila, 0, compra['fecha'])
+                hoja.write(fila, 1, compra['serie'])
+                hoja.write(fila, 2, compra['factura'])
+                hoja.write(fila, 3, compra['documento'])
+                hoja.write(fila, 4, compra['nit'])
+                hoja.write(fila, 5, compra['proveedor'])
+
+                if compra['combustible']:
+                    iva_combustible+=compra['iva']
+
+                if compra['compra']:
+                    iva_compra+=compra['iva_compra']  
+
+                if compra['compra_exento']:
+                    iva_exento+=compra['iva']
+
+                if compra['servicio']:
+                    iva_servicios+=compra['iva_servicio']
+
+                if compra['importacion']:
+                    iva_importaciones+=compra['iva']
+
+                if compra['pequenio']:
+                    iva_pequenio+=compra['iva']
+
+                if compra['activo']:
+                    iva_activo+=compra['iva']
+
+
+                hoja.write(fila, 6, compra['combustible'])    
+                hoja.write(fila, 7, compra['compra'])
+                if self.env.company.columna_farmacia_exento_ventas:
+                    hoja.write(fila, 8, compra['farmacia_exento'])                    
+                    hoja.write(fila, 9, compra['compra_exento'])
+                    hoja.write(fila, 10, compra['servicio'])
+                    hoja.write(fila, 11, compra['servicio_exento'])    
+                    hoja.write(fila, 12, compra['importacion'])
+                    hoja.write(fila, 13, compra['pequenio'])
+                    hoja.write(fila, 14, compra['activo'])
+                    hoja.write(fila, 15, compra['iva'])
+                    hoja.write(fila, 16, compra['total'])  
+                    #hoja.write(fila, 17, compra['iva_compra'])
+                else:                   
+                    hoja.write(fila, 8, compra['compra_exento'])
+                    hoja.write(fila, 9, compra['servicio'])
+                    hoja.write(fila, 10, compra['servicio_exento'])    
+                    hoja.write(fila, 11, compra['importacion'])
+                    hoja.write(fila, 12, compra['pequenio'])
+                    hoja.write(fila, 13, compra['activo'])
+                    hoja.write(fila, 14, compra['iva'])
+                    hoja.write(fila, 15, compra['total'])
+
+                fila += 1
+                
+            hoja.write(fila, 5, 'TOTAL')
+            hoja.write(fila, 6, res['total']['combustible'])
+            hoja.write(fila, 7, res['total']['compra'])
+            if self.env.company.columna_farmacia_exento_ventas:
+                hoja.write(fila, 8, res['total']['farmacia_exento'])
+                hoja.write(fila, 9, res['total']['compra_exento'])
+                hoja.write(fila, 10, res['total']['servicio'])
+                hoja.write(fila, 11, res['total']['servicio_exento'])
+                hoja.write(fila, 12, res['total']['importacion'])
+                hoja.write(fila, 13, res['total']['pequenio'])
+                hoja.write(fila, 14, res['total']['activo'])
+                hoja.write(fila, 15, res['total']['iva'])
+                hoja.write(fila, 16, res['total']['total'])
+            else:
+                hoja.write(fila, 8, res['total']['compra_exento'])
+                hoja.write(fila, 9, res['total']['servicio'])
+                hoja.write(fila, 10, res['total']['servicio_exento'])
+                hoja.write(fila, 11, res['total']['importacion'])
+                hoja.write(fila, 12, res['total']['pequenio'])
+                hoja.write(fila, 13, res['total']['activo'])
+                hoja.write(fila, 14, res['total']['iva'])
+                hoja.write(fila, 15, res['total']['total'])                
+            fila += 1
+
+
+            hoja.write(fila, 14, 'Documentos operados:')
+            hoja.write(fila, 15, res['documentos_operados'])
+
+            fila += 1
+
+            if len(res['gastos_no']) > 0 and self.env.company.gastos_no_deducibles:
+
+                hoja.write(fila,0,'Gastos no deducibles')
+
+                fila += 1
+
+                hoja.write(fila,0,'Fecha')
+                hoja.write(fila,1,'Documento')
+                hoja.write(fila,2,'NIT')
+                hoja.write(fila,3,'Proveedor')
+                hoja.write(fila,4,'Total')
+
+                fila += 1
+
+                for gasto in res['gastos_no']:
+                    hoja.write(fila,0,gasto['fecha'])
+                    hoja.write(fila,1,gasto['documento'])
+                    hoja.write(fila,2,gasto['nit'])
+                    hoja.write(fila,3,gasto['proveedor'])
+                    hoja.write(fila,4,gasto['total'])
+
+                    fila += 1
+
+
+                hoja.write(fila,3,'Total gastos no deducibles')
+                hoja.write(fila,4,res['total_gastos_no'])
+
+            fila+=2
+            hoja.write(fila,3,'Resumen')
+            hoja.write(fila,4,'Base')
+            hoja.write(fila,5,'IVA')
+            hoja.write(fila,6,'Total')
+
+            fila+=1
+            hoja.write(fila,3,'Total de combustibles: ')
+            hoja.write(fila,4,res['total']['combustible'])
+            hoja.write(fila,5,iva_combustible)
+            total_combustible=iva_combustible+res['total']['combustible']
+            hoja.write(fila,6,total_combustible)
+            fila+=1
+            hoja.write(fila,3,'Total de compras: ')
+            hoja.write(fila,4,res['total']['compra'])
+            hoja.write(fila,5,iva_compra)
+            total_compra=res['total']['compra']+iva_compra
+            hoja.write(fila,6,total_compra)
+            fila+=1
+            hoja.write(fila,3,'Total de servicios: ')
+            hoja.write(fila,4,res['total']['servicio'])
+            hoja.write(fila,5,iva_servicios)
+            total_servicios=res['total']['servicio']+iva_servicios
+            hoja.write(fila,6,total_servicios)
+            fila+=1
+            hoja.write(fila,3,'Pequeños contribuyentes: ')
+            hoja.write(fila,4,res['total']['pequenio'])
+            hoja.write(fila,5,iva_pequenio)
+            total_pequenio=res['total']['pequenio']+iva_pequenio
+            hoja.write(fila,6,total_pequenio)
+            fila+=1
+            hoja.write(fila,3,'Total de importaciones: ')
+            hoja.write(fila,4,res['total']['importacion'])
+            hoja.write(fila,5,iva_importaciones)
+            total_importaciones=res['total']['importacion']+iva_importaciones
+            hoja.write(fila,6,total_importaciones)
+            fila+=1
+            hoja.write(fila,3,'Vehículos: ')
+            hoja.write(fila,4,res['total']['activo'])
+            hoja.write(fila,5,iva_activo)
+            total_activo = res['total']['activo']+iva_activo
+            hoja.write(fila,6,total_activo)
+
+            fila+=1
+            hoja.write(fila,3,'Total exento: ')
+            hoja.write(fila,4,res['total']['compra_exento'])
+            hoja.write(fila,5,iva_exento)
+            total_exento=res['total']['compra_exento']+iva_exento
+            hoja.write(fila,6,total_exento)
+
+
+
+            fila+=1
+            base=0
+            hoja.write(fila,3,'Total General: ')
+            if res['total']['total'] > res['total']['iva']:
+                base = res['total']['total']-res['total']['iva']
+            hoja.write(fila,4, base)
+            hoja.write(fila,5, res['total']['iva'])
+            hoja.write(fila,6, res['total']['total'])
+            fila+=1
+            hoja.write(fila,3,'Total documentos operados: ')
+            hoja.write(fila,4,res['documentos_operados'])
+
+
+            fila+=3
+            hoja.write(fila, 0, 'Resumen de 10 proveedores')
+            fila+=1
+            hoja.write(fila, 0, 'Proveedor')
+            hoja.write(fila, 1, 'Base')
+            hoja.write(fila, 2, 'IVA')
+            hoja.write(fila, 3, 'Total')
+
+            proveedores = self.env['account.move'].search([('invoice_date', '>=', w.fecha_inicio), ('invoice_date', '<=', w.fecha_fin), ('move_type', '=', 'in_invoice'), ('state', '=', 'posted')])
+            dicc_proveedores={}
+            contador = 0
+            positivo = 0
+            positivo_base = 0
+            total_base = 0
+            iva_linea = 0
+            for proveedor in proveedores:
+                if proveedor.journal_id.tipo_factura != False:
+                    if proveedor.partner_id.id not in dicc_proveedores:
+                        dicc_proveedores[proveedor.partner_id.id]={
+                        'nombre_proveedor': proveedor.partner_id.name,
+                        'base':0,
+                        'iva':0,
+                        'total':0
+                        }
+                        contador+=1
+
+                    iva = 0
+                    if proveedor.partner_id.id in dicc_proveedores and proveedor.journal_id.tipo_factura != 'FESP':
+
+                        positivo = proveedor.amount_total_signed * -1
+
+                        positivo_base = proveedor.amount_untaxed_signed * -1
+
+                        dicc_proveedores[proveedor.partner_id.id]['base']+=positivo_base
+                        dicc_proveedores[proveedor.partner_id.id]['total']+=positivo
+#                         iva = dicc_proveedores[proveedor.partner_id.id]['total'] - dicc_proveedores[proveedor.partner_id.id]['base']
+
+                        if len(proveedor.invoice_line_ids.tax_ids) > 0:
+                            iva = positivo - positivo_base
+                        dicc_proveedores[proveedor.partner_id.id]['iva']+=iva
+
+
+                    if proveedor.partner_id.id in dicc_proveedores and proveedor.journal_id.tipo_factura == 'FESP':
+                        total_base_linea=0
+                        iva_linea=0
+                        total_base = 0
+                        total_fe = 0
+                        iva_total = 0
+                        for lineas_proveedor in proveedor.invoice_line_ids:
+                            logging.warning('')
+                            total_base += lineas_proveedor.price_subtotal
+                            total_fe += lineas_proveedor.quantity * lineas_proveedor.price_unit
+                        iva_total = total_fe - total_base
+                        dicc_proveedores[proveedor.partner_id.id]['base']+= total_base
+                        dicc_proveedores[proveedor.partner_id.id]['total']+=total_fe
+                        dicc_proveedores[proveedor.partner_id.id]['iva']+=iva_total
+#                             if lineas_proveedor.product_id.es_activo:
+#                                 total_base_linea = lineas_proveedor.quantity * lineas_proveedor.price_unit;
+#                                 iva_linea = total_base_linea - lineas_proveedor.price_subtotal
+#                             if lineas_proveedor.product_id.detailed_type == 'service':
+#                                 total_base_linea = lineas_proveedor.quantity * lineas_proveedor.price_unit;
+#                                 iva_linea = total_base_linea - lineas_proveedor.price_subtotal
+#                         dicc_proveedores[proveedor.partner_id.id]['base'] += total_base_linea;
+#                         dicc_proveedores[proveedor.partner_id.id]['iva'] += iva_linea
+# #                         total_base - (proveedor.amount_untaxed_signed*-1)
+#                         dicc_proveedores[proveedor.partner_id.id]['total'] = dicc_proveedores[proveedor.partner_id.id]['base'] + dicc_proveedores[proveedor.partner_id.id]['iva']
+
+
+
+            logging.warning('')
+            logging.warning('')
+            logging.warning('Diccionario proveedores')
+            logging.warning(dicc_proveedores)
+            logging.warning(len(dicc_proveedores))
+            logging.warning('')
+            logging.warning('')
+
+            list_total = []
+            posicion = 0
+            reemplazo =0
+            for id in dicc_proveedores:
+                list_total.append(dicc_proveedores[id]['total'])
+
+            for recorrido in range(1, len(list_total)):
+                for posicion in range(len(list_total) - recorrido):
+                    if list_total[posicion] < list_total[posicion + 1]:
+                        temp = list_total[posicion]
+                        list_total[posicion] = list_total[posicion+1]
+                        list_total[posicion+1]= temp
+
+
+
+            fila+=3
+            contador = 0
+            lista_id=[]
+            for x_monto in list_total:
+                if contador < 10:
+                    for id in dicc_proveedores:
+                        if x_monto == dicc_proveedores[id]['total'] and id not in lista_id:
+
+                            hoja.write(fila, 0, dicc_proveedores[id]['nombre_proveedor'])
+                            if dicc_proveedores[id]['base'] < 0:
+                                dicc_proveedores[id]['base'] = dicc_proveedores[id]['base'] * -1
+                                hoja.write(fila, 1, dicc_proveedores[id]['base'])
+                            else:
+                                hoja.write(fila, 1, dicc_proveedores[id]['base'])
+                            if dicc_proveedores[id]['iva'] < 0:
+                                dicc_proveedores[id]['iva'] = dicc_proveedores[id]['iva'] * -1
+                                hoja.write(fila, 2, dicc_proveedores[id]['iva'])
+                            else:
+                                hoja.write(fila, 2, dicc_proveedores[id]['iva'])
+                            if dicc_proveedores[id]['total'] < 0:
+                                dicc_proveedores[id]['total'] = dicc_proveedores[id]['total'] * -1
+                                hoja.write(fila, 3, dicc_proveedores[id]['total'])
+                            else:
+                                hoja.write(fila, 3, dicc_proveedores[id]['total'])
+                            fila+=1
+                            lista_id.append(id)
+                contador+=1
+
+
+
+            libro.close()
+            datos = base64.b64encode(f.getvalue())
+            self.write({'archivo':datos, 'name':'libro_compras.xlsx'})
 
         return {
-            'doc_ids': self.ids,
-            'doc_model': model,
-            'data': data['form'],
-            'docs': docs,
-            '_get_compras': self._get_compras,
+            'view_type': 'form',
+            'view_mode': 'form',
+            'res_model': 'account_gt.libro_compras.wizard',
+            'res_id': self.id,
+            'view_id': False,
+            'type': 'ir.actions.act_window',
+            'target': 'new',
         }
 
 # vim:expandtab:smartindent:tabstop=4:softtabstop=4:shiftwidth=4:
