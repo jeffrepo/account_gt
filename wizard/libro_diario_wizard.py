@@ -79,7 +79,10 @@ class LibroDiarioWizard(models.TransientModel):
                                 hoja.write(fila, 1, '')
 
                             hoja.write(fila, 2, m['codigo'])
-                            hoja.write(fila, 3, m['nombre_cuenta']["es_GT"])
+                            if "es_GT" in m['nombre_cuenta']:
+                                hoja.write(fila, 3, m['nombre_cuenta']["es_GT"])
+                            else:
+                                hoja.write(fila, 3, m['nombre_cuenta']["en_US"])
                             hoja.write(fila, 4, m['descripcion'])
                             hoja.write(fila, 5, m['debe'], formato_moneda)
                             hoja.write(fila, 6, m['haber'], formato_moneda)
@@ -119,11 +122,17 @@ class LibroDiarioWizard(models.TransientModel):
                                 if llave_diario != 'nombre_mes':
                                     if llave_diario != 'total_debe':
                                         if llave_diario != 'total_haber':
-                                            hoja.write(fila, 0,reporte_data_consolidado[llave_mes][llave_diario]['diario']["en_US"])
+                                            if "en_US" in reporte_data_consolidado[llave_mes][llave_diario]['diario']:
+                                                hoja.write(fila, 0,reporte_data_consolidado[llave_mes][llave_diario]['diario']["en_US"])
+                                            else:
+                                                hoja.write(fila, 0,reporte_data_consolidado[llave_mes][llave_diario]['diario']["es_GT"])
                                             fila += 1
                                             for m_a in reporte_data_consolidado[llave_mes][llave_diario]['movimientos_agrupados']:
                                                 hoja.write(fila, 0, reporte_data_consolidado[llave_mes][llave_diario]['movimientos_agrupados'][m_a]['codigo'])
-                                                hoja.write(fila, 1, reporte_data_consolidado[llave_mes][llave_diario]['movimientos_agrupados'][m_a]['nombre_cuenta']["en_US"])
+                                                if "en_US" in reporte_data_consolidado[llave_mes][llave_diario]['movimientos_agrupados'][m_a]['nombre_cuenta']:
+                                                    hoja.write(fila, 1, reporte_data_consolidado[llave_mes][llave_diario]['movimientos_agrupados'][m_a]['nombre_cuenta']["en_US"])
+                                                else:
+                                                    hoja.write(fila, 1, reporte_data_consolidado[llave_mes][llave_diario]['movimientos_agrupados'][m_a]['nombre_cuenta']["es_GT"])
                                                 hoja.write(fila, 2, reporte_data_consolidado[llave_mes][llave_diario]['movimientos_agrupados'][m_a]['debe'], formato_moneda)
                                                 hoja.write(fila, 3, reporte_data_consolidado[llave_mes][llave_diario]['movimientos_agrupados'][m_a]['haber'], formato_moneda)
                                                 fila += 1
