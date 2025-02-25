@@ -411,10 +411,9 @@ class LibroCompras(models.AbstractModel):
                                                 
                                                 for linea_contable in compra.line_ids:
                                                     if linea_contable.account_id.account_type == "expense":
-                                                        logging.warning('Ingresando en alguna parteeeee')    
-                                                        dic['iva'] = linea_contable.debit
+                                                        dic['compra_exento'] = linea_contable.debit
                                                         x = datos_json['amount_total'] - dic['iva']
-                                                        dic['compra_exento'] = x - dic['combustible']
+                                                        dic['iva'] = x - dic['combustible']
                                                     
                                             else:
                                                 iva_prod=0
