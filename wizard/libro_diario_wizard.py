@@ -119,11 +119,11 @@ class LibroDiarioWizard(models.TransientModel):
                                 if llave_diario != 'nombre_mes':
                                     if llave_diario != 'total_debe':
                                         if llave_diario != 'total_haber':
-                                            hoja.write(fila, 0,reporte_data_consolidado[llave_mes][llave_diario]['diario'])
+                                            hoja.write(fila, 0,reporte_data_consolidado[llave_mes][llave_diario]['diario']["en_US"])
                                             fila += 1
                                             for m_a in reporte_data_consolidado[llave_mes][llave_diario]['movimientos_agrupados']:
                                                 hoja.write(fila, 0, reporte_data_consolidado[llave_mes][llave_diario]['movimientos_agrupados'][m_a]['codigo'])
-                                                hoja.write(fila, 1, reporte_data_consolidado[llave_mes][llave_diario]['movimientos_agrupados'][m_a]['nombre_cuenta'])
+                                                hoja.write(fila, 1, reporte_data_consolidado[llave_mes][llave_diario]['movimientos_agrupados'][m_a]['nombre_cuenta']["en_US"])
                                                 hoja.write(fila, 2, reporte_data_consolidado[llave_mes][llave_diario]['movimientos_agrupados'][m_a]['debe'], formato_moneda)
                                                 hoja.write(fila, 3, reporte_data_consolidado[llave_mes][llave_diario]['movimientos_agrupados'][m_a]['haber'], formato_moneda)
                                                 fila += 1
