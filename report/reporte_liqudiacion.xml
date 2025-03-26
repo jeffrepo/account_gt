@@ -97,7 +97,7 @@
                                     <!-- <td>
                                     </td> -->
                                     <td class="text-right">
-                                        <span t-esc="total_factura" t-options='{"widget": "monetary", "display_currency": user.company_id.currency_id}'/>
+                                        <span t-esc="total_factura" t-options='{"widget": "monetary", "display_currency": o.factura_relacion_ids[0].currency_id}'/>
                                     </td>
                                 </tr>
                             </tbody>
@@ -161,7 +161,7 @@
                                     <td>
                                     </td>
                                     <td class="text-right">
-                                        <span t-esc="total_factura - total_cheque" t-options='{"widget": "monetary", "display_currency": user.company_id.currency_id}'/>
+                                        <span t-esc="total_factura - total_cheque" t-options='{"widget": "monetary", "display_currency": o.factura_relacion_ids[0].currency_id}'/>
                                     </td>
                                 </tr>
                             </tbody>
