@@ -203,8 +203,7 @@ class LibroCompras(models.AbstractModel):
                             'rectificativa':rectificativa
                         }
 
-#        Si la factura es nota de credito si es consumible y activo es igual a false
-
+                        #Si la factura es nota de credito si es consumible y activo es igual a false
                         if compra.journal_id.tipo_factura in ["NCRE","NABN"]:
                             logging.warning('es nota de credito')
                             producto_compra = 0
@@ -313,9 +312,13 @@ class LibroCompras(models.AbstractModel):
                             dic['compra_exento'] = total_exento
                             dic['servicio'] = total_servicio
                             dic['iva'] = iva_fe
-#                         compra.tipo_factura = 'combustible' and
                             
                         if compra.journal_id.tipo_factura != 'FESP' and compra.journal_id.tipo_factura in ['FACT','FCAM']:
+                            if compra.tipo_factura == 'combustible':
+                                for linea_contable in compra.line_ids:
+                                    if linea_contable.account_id.uso == "impuesto_petroleo":
+                                        dic['compra_exento'] += linea_contable.debit
+
                             for linea in compra.invoice_line_ids:
                                 impuesto_iva = False
                                 impuesto_iva = self._get_impuesto_iva(linea.tax_ids)
@@ -411,35 +414,12 @@ class LibroCompras(models.AbstractModel):
                                             elif compra.tipo_factura == 'importacion':
 
                                                 dic['importacion'] += linea.price_subtotal
-#                                               if compra.tipo_factura == 'combustible':
                                             elif compra.tipo_factura == 'combustible' and (linea.product_id.detailed_type == 'consu' or linea.product_id.detailed_type == 'service'):
                                                 
                                                 #crea un diccionario 
                                                 datos_json = json.loads(compra.tax_totals_json)
                                                 if 'amount_untaxed' in datos_json:
                                                     dic['combustible']=datos_json['amount_untaxed']
-                                                
-                                                for linea_contable in compra.line_ids:
-                                                    if 5 in linea_contable.account_id.user_type_id.get_external_id():
-                                                        logging.warning('Ingresando en alguna parteeeee')    
-                                                        dic['iva'] = linea_contable.debit
-                                                        x = datos_json['amount_total'] - dic['iva']
-                                                        dic['compra_exento'] = x - dic['combustible']
-                                                    
-#                                                 precio = ( linea.price_unit * (1-(linea.discount or 0.0)/100.0) )
-#                                                 precios = linea.tax_ids.compute_all(precio, currency=compra.currency_id, quantity=linea.quantity, product=linea.product_id, partner=compra.partner_id)
-#                                                 iva_cobrar = 0
-#                                                 idp_super = 0
-#                                                 for impuesto in precios['taxes']:
-#                                                     if impuesto['name'] ==  'IVA por Cobrar':
-#                                                         iva_cobrar += impuesto['amount']
-#                                                     if impuesto['name'] ==  'IDP Super':
-#                                                         idp_super += impuesto['amount']
-#                                                 dic['combustible']+=(compra.amount_untaxed_signed*-1)
-# #                                                 iva = (compra.amount_total_signed*-1)+ compra.amount_untaxed_signed
-#                                                 dic['iva'] = iva_cobrar
-#                                                 dic['compra_exento'] = idp_super
-# #                                                 dic['iva']+= iva
                                             else:
                                                 iva_prod=0
                                                 if linea.product_id.es_activo:
