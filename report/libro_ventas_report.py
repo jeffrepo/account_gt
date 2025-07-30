@@ -203,10 +203,13 @@ class LibroVentas(models.AbstractModel):
                         }
 
                         reten_iva = self.env['account.move'].search([('ref','=', str(compra.name))])
-                        if reten_iva and compra.state != 'cancel':
-                            for linea in reten_iva.line_ids:
-                                logging.warn(linea.account_id.user_type_id.name)
-                                if linea.account_id.user_type_id.name == 'Activos Circulantes':
+                        logging.warning(compra.name)
+                        logging.warning(reten_iva)
+                        if compra and compra.state != 'cancel':
+                            for linea in compra.line_ids:
+                                logging.warning('retencion')
+                                logging.warn(linea.account_id.name)
+                                if linea.account_id.uso == "retencion_iva":
                                     dic['reten_iva'] += linea.debit
                                     total['reten_iva'] += linea.debit
 
