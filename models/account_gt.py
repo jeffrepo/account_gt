@@ -4,6 +4,12 @@ from odoo.exceptions import ValidationError
 from odoo.exceptions import UserError, AccessError
 import logging
 
+class AccountACcount(models.Model):
+    _inherit = "account.account"
+
+    uso = fields.Selection([('exento','Exento'),('compra_bien','Compra / bien'),('impuesto_petroleo','Impuesto de petroleo'),('combustible','Combustible'),('retencion_iva','Retencion IVA'),('iva','IVA')],'Uso')
+
+
 class Liquidacion(models.Model):
     _name = "account_gt.liquidacion"
     _inherit = ['mail.thread', 'mail.activity.mixin']
