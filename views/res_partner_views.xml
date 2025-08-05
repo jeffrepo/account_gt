@@ -10,6 +10,7 @@
                 <field name="vat" position="after">
                     <field name="documento_personal_identificacion"/>
                     <field name="pequenio_contribuyente"/>
+                    <field name="codigo_destinatario"/>
                 </field>
 
                 <xpath expr="//field[@name='vat']" position="attributes">
