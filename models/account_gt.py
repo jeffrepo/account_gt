@@ -99,7 +99,7 @@ class Liquidacion(models.Model):
                     # logging.warn(f.number)
                     # logging.warn(f.amount_total)
                     for l in linea.line_ids:
-                        if l.account_id.reconcile:
+                        if l.account_id.name == 'Por pagar':
                             if not l.reconciled:
                                 total += l.credit - l.debit
                                 lineas.append(l)
