@@ -104,7 +104,7 @@
         <record id="action_account_gt_liquidacion" model="ir.actions.act_window">
             <field name="name">Liquidaciones</field>
             <field name="res_model">account_gt.liquidacion</field>
-            <field name="view_mode">tree,form</field>
+            <field name="view_mode">list,form</field>
             <field name="domain"></field>
             <field name="context"></field>
             <field name="search_view_id" ref="account_gt_liquidacion_view_search"/>
