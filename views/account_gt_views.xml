@@ -9,10 +9,10 @@
             <field name="arch" type="xml">
                 <field name="account_type" position="after">
                     <field name="uso"/>
-                </field>    
+                </field>
             </field>
         </record>
-        
+
 
         <record id="view_account_gt_liquidacion_tree" model="ir.ui.view">
             <field name="name">account_gt.liquidacion.tree</field>
@@ -78,12 +78,7 @@
                             </page>
                         </notebook>
                     </sheet>
-                    <div class="o_attachment_preview"/>
-                    <div class="oe_chatter">
-                        <field name="message_follower_ids" widget="mail_followers" groups="base.group_user"/>
-                        <field name="activity_ids" widget="mail_activity"/>
-                        <field name="message_ids" widget="mail_thread"/>
-                    </div>
+                    <chatter/>
                 </form>
             </field>
         </record>
