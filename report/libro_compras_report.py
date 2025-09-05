@@ -298,9 +298,9 @@ class LibroCompras(models.AbstractModel):
                                                 dic['importacion'] += monto_convertir
 
                                             else:
-                                                if linea.product_id.type == 'product':
+                                                if linea.product_id.is_storable == True:
                                                     dic['compra'] += monto_convertir
-                                                if linea.product_id.type != 'product':
+                                                else:
                                                     dic['servicio'] +=  monto_convertir
 
 
