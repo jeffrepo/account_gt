@@ -322,6 +322,8 @@ class LibroVentas(models.AbstractModel):
                                                     dic['servicio'] +=  linea.price_subtotal
                                             elif compra.tipo_factura == 'importacion':
                                                 dic['importacion'] += linea.price_subtotal
+                                            elif compra.tipo_factura == 'venta':
+                                                dic['compra'] += linea.price_subtotal
                                             else:
                                                 if linea.product_id.detailed_type == 'product':
                                                     dic['compra'] += linea.price_subtotal
