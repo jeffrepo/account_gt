@@ -316,7 +316,7 @@ class LibroCompras(models.AbstractModel):
                         if compra.journal_id.tipo_factura != 'FESP' and compra.journal_id.tipo_factura in ['FACT','FCAM']:
                             if compra.tipo_factura == 'combustible':
                                 for linea_contable in compra.line_ids:
-                                    if linea_contable.account_id.uso == "impuesto_petroleo":
+                                    if linea_contable.account_id.uso == "exento":
                                         dic['compra_exento'] += linea_contable.debit
 
                             for linea in compra.invoice_line_ids:
