@@ -18,6 +18,7 @@
                 <page name="other_info" position="after">
                     <page name="datos_fexp" string="Datos Factura exportación">
                         <group>
+                            <field name="lugar_expedicion"/>
                             <field name="consignatario_destinatario_id"/>
                             <field name="comprador_id"/>
                             <field name="exportador_id"/>
