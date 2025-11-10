@@ -163,7 +163,7 @@ class Liquidacion(models.Model):
                     'date_maturity': dato.fecha,
                 }))
 
-            if total != 0 and moneda_factura.name== 'USD' and moneda_pago.name=='USD':
+            if round(total,2) != 0 and moneda_factura.name== 'USD' and moneda_pago.name=='USD':
                 logging.warning('DOLAR')
                 nuevas_lineas.append((0, 0, {
                     'name': 'Diferencia de ' + dato.name,
