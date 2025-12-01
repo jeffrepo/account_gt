@@ -113,7 +113,18 @@ class LibroCompras(models.AbstractModel):
         ('date','>=',datos['fecha_inicio']),
         ('state','=','posted'),
         ('move_type','in',['in_invoice','in_refund'])] ,order='invoice_date asc')
-        total = {'compra':0,'compra_exento':0,'servicio':0,'servicio_exento':0,'importacion':0,'pequenio':0, 'combustible':0, 'activo':0,'iva':0,'total':0}
+        total = {'compra':0,
+                 'farmacia_exento': 0,
+                 'compra_exento':0,
+                 'servicio':0,'servicio_exento':0,
+                 'importacion':0,
+                 'pequenio':0,
+                 'combustible':0,
+                 'activo':0,
+                 'iva':0,
+                 'iva_compra':0,
+                 'iva_servicio':0,
+                 'total':0}
         total_gastos_no = 0
         documentos_operados = 0
         if compra_ids:
@@ -124,33 +135,50 @@ class LibroCompras(models.AbstractModel):
                         factura = ''
                         documento = ''
                         doc_ref = ''
-                        if compra.ref:
-                            if '-' in compra.ref:
-                                factura = compra.ref.split('-')[0]
-                                documento = compra.ref.split('-')[1]
-                            elif '/' in compra.ref:
-                                factura = compra.ref.split('/')[0]
-                                documento = compra.ref.split('/')[1]
-                            else:
-                                factura = compra.fel_serie
-                                documento = compra.fel_numero         
+                        modulo_fel = self.env['ir.module.module'].search([('name', '=', 'infilefel')])
+                        if modulo_fel and modulo_fel.state == 'installed':
+                            factura = compra.fel_serie
+                            documento = compra.fel_numero                     
                         else:
-                            modulo_fel = self.env['ir.module.module'].search([('name', '=', 'infilefel')])
-                            if modulo_fel and modulo_fel.state == 'installed':
-                                factura = compra.fel_serie
-                                documento = compra.fel_numero
+                            if compra.ref:
+                                if '-' in compra.ref:
+                                    factura = compra.ref.split('-')[0]
+                                    documento = compra.ref.split('-')[1]
+                                elif '/' in compra.ref:
+                                    factura = compra.ref.split('/')[0]
+                                    documento = compra.ref.split('/')[1]
+                                elif ' ' in compra.ref:
+                                    factura = compra.ref.split(' ')[0]
+                                    documento = compra.ref.split(' ')[1]
+                                else:
+                                    factura = ""
+                                    documento = ""                                
                             else:
-                                factura = ''
-                                documento = ''
-                        if documento == '' and compra.journal_id.tipo_factura == 'FESP' and compra.fel_numero:
-                                documento = compra.fel_numero
-                            
+                                if compra.payment_reference:
+                                    if '-' in compra.payment_reference:
+                                        factura = compra.payment_reference.split('-')[0]
+                                        documento = compra.payment_reference.split('-')[1]
+                                    elif '/' in compra.payment_reference:
+                                        factura = compra.payment_reference.split('/')[0]
+                                        documento = compra.payment_reference.split('/')[1]
+                                    elif ' ' in compra.payment_reference:
+                                        factura = compra.payment_reference.split(' ')[0]
+                                        documento = compra.payment_reference.split(' ')[1]
+                                    else:
+                                        factura = ""
+                                        documento = ""
+
                         documentos_operados += 1
                         if compra.journal_id:
                             doc_ref = compra.journal_id.tipo_factura
                         if compra.move_type == 'in_refund':
                             rectificativa=True
-
+                        
+                        nit = compra.partner_id.vat if compra.partner_id.vat else ''
+                        
+                        if compra.partner_id.documento_personal_identificacion:
+                            nit = compra.partner_id.documento_personal_identificacion
+                            
                         dic = {
                             'id': compra.id,
                             'fecha': formato_fecha,
@@ -158,8 +186,9 @@ class LibroCompras(models.AbstractModel):
                             'factura': documento,
                             'documento': doc_ref,
                             'proveedor': compra.partner_id.name if compra.partner_id else '',
-                            'nit': compra.partner_id.vat if compra.partner_id.vat else '',
+                            'nit': nit,
                             'compra': 0,
+                            'farmacia_exento': 0,
                             'compra_exento':0,
                             'servicio': 0,
                             'servicio_exento': 0,
@@ -168,31 +197,50 @@ class LibroCompras(models.AbstractModel):
                             'combustible':0,
                             'activo':0,
                             'iva': 0,
+                            'iva_compra': 0,
+                            'iva_servicio': 0,
                             'total': 0,
                             'rectificativa':rectificativa
                         }
 
-#        Si la factura es nota de credito si es consumible y activo es igual a false
-
-                        if dic['rectificativa']:
+                        #Si la factura es nota de credito si es consumible y activo es igual a false
+                        if compra.journal_id.tipo_factura in ["NCRE","NABN"]:
+                            logging.warning('es nota de credito')
                             producto_compra = 0
                             producto_servicio = 0
                             producto_activo = 0
                             iva_general = 0
+                            iva_compra = 0
+                            iva_servicio = 0
+                            farmacia_exento = 0
                             for linea in compra.invoice_line_ids:
-                                if linea.product_id.detailed_type == 'consu' and linea.product_id.es_activo == False:
-                                    producto_compra += linea.price_subtotal
-                                    iva_general += linea.price_total - linea.price_subtotal
-                                if linea.product_id.detailed_type == 'service' and linea.product_id.es_activo == False:
-                                    producto_servicio += linea.price_subtotal
-                                    iva_general += linea.price_total - linea.price_subtotal
-                                if linea.product_id.detailed_type == 'consu' and linea.product_id.es_activo:
-                                    producto_activo += linea.price_subtotal
-                                    iva_general += linea.price_total - linea.price_subtotal
+                                if linea.product_id.farmacia_exento:
+                                    if linea.product_id.detailed_type in ['product','service']:
+                                        farmacia_exento += linea.price_subtotal
+                                else:
+                                    if linea.product_id.detailed_type == 'consu' and linea.product_id.es_activo == False:
+                                        producto_compra += linea.price_subtotal
+                                        iva_general += linea.price_total - linea.price_subtotal
+                                        iva_compra += (linea.price_total - linea.price_subtotal) * -1
+                                    if linea.product_id.detailed_type == 'service' and linea.product_id.es_activo == False:
+                                        producto_servicio += linea.price_subtotal
+                                        iva_general += linea.price_total - linea.price_subtotal
+                                        iva_servicio += (linea.price_total - linea.price_subtotal) * -1
+                                    if linea.product_id.detailed_type == 'consu' and linea.product_id.es_activo:
+                                        producto_activo += linea.price_subtotal
+                                        iva_general += linea.price_total - linea.price_subtotal
+                                        iva_compra += (linea.price_total - linea.price_subtotal) * -1
+                                    if linea.product_id.detailed_type == 'product':
+                                        producto_compra += linea.price_subtotal
+                                        iva_general += linea.price_total - linea.price_subtotal
+                                        iva_compra += (linea.price_total - linea.price_subtotal) * -1
 
                             dic['compra']=producto_compra
+                            dic['farmacia_exento'] = farmacia_exento
                             dic['activo']=producto_activo
                             dic['servicio']=producto_servicio
+                            dic['iva_compra'] = iva_compra
+                            dic['iva_servicio'] = iva_servicio
                             dic['iva']=iva_general
 
 #                         if compra.tipo_factura == 'combustible':
@@ -264,9 +312,13 @@ class LibroCompras(models.AbstractModel):
                             dic['compra_exento'] = total_exento
                             dic['servicio'] = total_servicio
                             dic['iva'] = iva_fe
-#                         compra.tipo_factura = 'combustible' and
                             
-                        if compra.journal_id.tipo_factura != 'FESP' and compra.journal_id.tipo_factura == 'FACT':
+                        if compra.journal_id.tipo_factura != 'FESP' and compra.journal_id.tipo_factura in ['FACT','FCAM']:
+                            if compra.tipo_factura == 'combustible':
+                                for linea_contable in compra.line_ids:
+                                    if linea_contable.account_id.uso == "exento":
+                                        dic['compra_exento'] += linea_contable.debit
+
                             for linea in compra.invoice_line_ids:
                                 impuesto_iva = False
                                 impuesto_iva = self._get_impuesto_iva(linea.tax_ids)
@@ -299,7 +351,6 @@ class LibroCompras(models.AbstractModel):
                                                     dic['compra'] += monto_convertir
                                                 if linea.product_id.type != 'product':
                                                     dic['servicio'] +=  monto_convertir
-
 
 
                                             if compra.partner_id.pequenio_contribuyente:
@@ -358,38 +409,17 @@ class LibroCompras(models.AbstractModel):
                                                     dic['compra'] += linea.price_subtotal
                                                 if linea.product_id.detailed_type != 'product':
                                                     dic['servicio'] +=  linea.price_subtotal
+                                            elif compra.tipo_factura == 'compra':
+                                                dic['compra'] += linea.price_subtotal
                                             elif compra.tipo_factura == 'importacion':
 
                                                 dic['importacion'] += linea.price_subtotal
-#                                               if compra.tipo_factura == 'combustible':
-                                            elif compra.tipo_factura == 'combustible' and linea.product_id.detailed_type == 'consu':
+                                            elif compra.tipo_factura == 'combustible' and (linea.product_id.detailed_type == 'consu' or linea.product_id.detailed_type == 'service'):
                                                 
                                                 #crea un diccionario 
                                                 datos_json = json.loads(compra.tax_totals_json)
                                                 if 'amount_untaxed' in datos_json:
                                                     dic['combustible']=datos_json['amount_untaxed']
-                                                
-                                                for linea_contable in compra.line_ids:
-                                                    if 5 in linea_contable.account_id.user_type_id.get_external_id():
-                                                        logging.warning('Ingresando en alguna parteeeee')    
-                                                        dic['iva'] = linea_contable.debit
-                                                        x = datos_json['amount_total'] - dic['iva']
-                                                        dic['compra_exento'] = x - dic['combustible']
-                                                    
-#                                                 precio = ( linea.price_unit * (1-(linea.discount or 0.0)/100.0) )
-#                                                 precios = linea.tax_ids.compute_all(precio, currency=compra.currency_id, quantity=linea.quantity, product=linea.product_id, partner=compra.partner_id)
-#                                                 iva_cobrar = 0
-#                                                 idp_super = 0
-#                                                 for impuesto in precios['taxes']:
-#                                                     if impuesto['name'] ==  'IVA por Cobrar':
-#                                                         iva_cobrar += impuesto['amount']
-#                                                     if impuesto['name'] ==  'IDP Super':
-#                                                         idp_super += impuesto['amount']
-#                                                 dic['combustible']+=(compra.amount_untaxed_signed*-1)
-# #                                                 iva = (compra.amount_total_signed*-1)+ compra.amount_untaxed_signed
-#                                                 dic['iva'] = iva_cobrar
-#                                                 dic['compra_exento'] = idp_super
-# #                                                 dic['iva']+= iva
                                             else:
                                                 iva_prod=0
                                                 if linea.product_id.es_activo:
@@ -400,12 +430,23 @@ class LibroCompras(models.AbstractModel):
                                                 else:
                                                     if linea.product_id.detailed_type == 'product' :
                                                         dic['compra'] += linea.price_subtotal
+                                                        for i in r['taxes']:
+                                                            if 'IVA' in i['name']:
+                                                                dic['iva_compra'] += i['amount']
                                                     if linea.product_id.detailed_type != 'product' and linea.product_id.detailed_type != 'consu':
                                                         dic['servicio'] +=  linea.price_subtotal
+                                                        for i in r['taxes']:
+                                                            if 'IVA' in i['name']:
+                                                                dic['iva_servicio'] += i['amount']
+                                                            if ('turismo' in i['name']) or ('TURISMO' in i['name']) or ('Turismo' in i['name']):
+                                                                dic['compra_exento'] += i['amount']
                                                     if linea.product_id.detailed_type == 'consu' and linea.product_id.es_activo == False:
-
                                                         dic['compra'] +=  linea.price_subtotal
+                                                        for i in r['taxes']:
+                                                            if 'IVA' in i['name']:
+                                                                dic['iva_compra'] += i['amount']
 
+                                                                
                                             if compra.partner_id.pequenio_contribuyente:
                                                 dic['compra'] = 0
                                                 dic['servicio'] = 0
@@ -416,8 +457,11 @@ class LibroCompras(models.AbstractModel):
 
 
                                         else:
-                                            if linea.product_id.type == 'product':
+                                            logging.warning('el que necesito')
+                                            if linea.product_id.type == 'product' and linea.product_id.farmacia_exento==False:
                                                 dic['compra_exento'] += linea.price_total
+                                            if linea.product_id.type == 'product' and linea.product_id.farmacia_exento==True:
+                                                dic['farmacia_exento'] += linea.price_total
                                             if linea.product_id.type != 'product':
                                                 dic['servicio_exento'] +=  linea.price_total
 
@@ -433,19 +477,23 @@ class LibroCompras(models.AbstractModel):
 
 
 
-                        if compra.move_type in ['in_refund']:
+                        if dic['documento'] in ["NCRE","NABN"] or compra.move_type in ['in_refund']:
                             dic['compra']  = dic['compra'] * -1
                             dic['compra_exento'] = dic['compra_exento'] * -1
                             dic['servicio'] =  dic['servicio'] * -1
+                            if dic['farmacia_exento'] > 0:
+                                dic['farmacia_exento']  = dic['farmacia_exento'] * -1
                             dic['servicio_exento'] = dic['servicio_exento'] * -1
                             dic['importacion'] = dic['importacion'] * -1
                             dic['pequenio'] = dic['pequenio'] * -1
-                            dic['iva'] = dic['iva'] * -1
+                            #dic['iva'] = dic['iva'] * -1
+                            dic['iva'] = dic['iva_compra']  + dic['iva_servicio']
                             dic['total'] = dic['total'] * -1
 
 
 
                         total['compra'] += dic['compra']
+                        total['farmacia_exento'] += dic['farmacia_exento']
                         total['compra_exento'] += dic['compra_exento']
                         total['servicio'] += dic['servicio']
                         total['servicio_exento'] += dic['servicio_exento']
@@ -453,9 +501,12 @@ class LibroCompras(models.AbstractModel):
                         total['pequenio'] += dic['pequenio']
                         total['combustible'] += dic['combustible']
                         total['activo'] += dic['activo']
+                        #total['iva'] += dic['iva']
                         total['iva'] += dic['iva']
+                        total['iva_compra'] += dic['iva_compra']
+                        total['iva_servicio'] += dic['iva_servicio']
                         compras_lista.append(dic)
-                        dic['total'] = dic['activo'] + dic['combustible'] + dic['compra'] + dic['servicio'] + dic['compra_exento'] + dic['servicio_exento'] + dic['importacion'] + dic['iva'] + dic['pequenio']
+                        dic['total'] = dic['activo'] + dic['combustible'] + dic['compra'] +dic['farmacia_exento'] + dic['servicio'] + dic['compra_exento'] + dic['servicio_exento'] + dic['importacion'] + dic['iva'] + dic['pequenio']
                         total['total'] += dic['total']
 
                     else:
@@ -499,9 +550,14 @@ class LibroCompras(models.AbstractModel):
             6:{
                 'total_iva_exento':0,
                 'total_exento':0
+            },
+            7:{
+                'total_iva_exento':0,
+                'total_farmacia_exento':0
             }
         }
-
+        logging.warning('compras listas')
+        logging.warning(compras_lista)
         for lista in compras_lista:
             total_combustible=0
             total_compras=0
@@ -513,11 +569,11 @@ class LibroCompras(models.AbstractModel):
                         dicc_resumen_total[0]['total_combustible']+=lista['total']
                 if id_compra == 'compra':
                     if lista['compra']>0:
-                        dicc_resumen_total[1]['total_iva_compras']+=lista['iva']
+                        dicc_resumen_total[1]['total_iva_compras']+=lista['iva_compra']
                         dicc_resumen_total[1]['total_compras']+=lista['total']
                 if id_compra == 'servicio':
                     if lista['servicio']>0:
-                        dicc_resumen_total[2]['total_iva_servicio']+=lista['iva']
+                        dicc_resumen_total[2]['total_iva_servicio']+=lista['iva_servicio']
                         dicc_resumen_total[2]['total_servicio']+=lista['total']
                 if id_compra == 'pequenio':
                     if lista['pequenio']>0:
@@ -535,10 +591,11 @@ class LibroCompras(models.AbstractModel):
                     if lista['compra_exento']>0:
                         dicc_resumen_total[6]['total_iva_exento']+=lista['iva']
                         dicc_resumen_total[6]['total_exento']+=lista['total']
+                if id_compra == 'farmacia_exento':
+                    if lista['farmacia_exento']>0:
+                        dicc_resumen_total[7]['total_iva_exento']+=lista['iva']
+                        dicc_resumen_total[7]['total_farmacia_exento']+=lista['total']                        
 
-        if dic['id'] == 6435:
-            logging.warning('Prestar atención ')
-            logging.warning(dic)
         return {'compras_lista': compras_lista,'total': total,'documentos_operados':documentos_operados,'resumen_total':dicc_resumen_total,'gastos_no': gastos_no_lista,'total_gastos_no': total_gastos_no}
 
     @api.model
