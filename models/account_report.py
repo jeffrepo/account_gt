@@ -9,7 +9,6 @@ import markupsafe
 from collections import defaultdict
 from math import copysign, inf
 
-from odoo.modules import get_module_resource
 from odoo.exceptions import ValidationError
 from odoo.exceptions import UserError, AccessError
 from odoo.addons.web.controllers.main import clean_action
