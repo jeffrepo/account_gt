@@ -8,6 +8,11 @@ class AccountACcount(models.Model):
 
     uso = fields.Selection([('exento','Exento'),('compra_bien','Compra / bien'),('impuesto_petroleo','Impuesto de petroleo'),('combustible','Combustible'),('retencion_iva','Retencion IVA'),('iva','IVA')],'Uso')
 
+class ResCompany(models.Model):
+    _inherit = "res.company"
+
+    columna_farmacia_exento_ventas = fields.Boolean('Columna farmacia exento')
+    gastos_no_deducibles = fields.Boolean('Mostrar gastos no deducibles Libro compras')
 
 class Liquidacion(models.Model):
     _name = "account_gt.liquidacion"
@@ -29,6 +34,9 @@ class Liquidacion(models.Model):
         ('borrador', 'Borrador'),
         ('conciliado', 'Conciliado'),
         ('cancelado', 'Cancelado'),], string='Estado', readonly=True, copy=False, index=True, tracking=3, default='borrador')
+    factura_relacion_ids = fields.One2many('account.move','liquidacion_id','Facturas', tracking=True)
+    pago_relacion_ids = fields.One2many('account.payment','liquidacion_id' ,'Pagos', tracking=True)
+    total_factura = fields.Float('Total factura')
 
     @api.model
     def create(self, vals):
