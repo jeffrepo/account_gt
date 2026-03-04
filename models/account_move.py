@@ -5,6 +5,13 @@ import logging
 class AccountMove(models.Model):
     _inherit = 'account.move'
 
+    def write(self, vals):
+        for move in self:
+            if vals and move.move_type == "entry" and'liquidacion_id' in vals and vals['liquidacion_id']:
+                vals['liquidacion_id'] = False            
+        res = super(AccountMove, self).write(vals)
+        return res
+    
     if version_info[0] == 13:
         @api.onchange('journal_id')
         def onchange_tipo_factura(self):
@@ -60,3 +67,8 @@ class AccountMoveLine(models.Model):
 
     conciliacion_bancaria = fields.Boolean("Conciliacion bancaria")
     fecha_conciliacion_bancaria = fields.Date("Fecha conciliacion")
+
+class ResCompany(models.Model):
+    _inherit = "res.company"
+
+    anulado_libro_compras = fields.Boolean('Anulado libro compras')
