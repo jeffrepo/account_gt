@@ -454,6 +454,8 @@ class LibroCompras(models.AbstractModel):
                                                 dic['compra_exento'] = 0
                                                 dic['servicio_exento'] = 0
                                                 dic['pequenio'] += linea.price_total
+                                                dic['iva'] = 0
+                                                dic['total'] += linea.price_total
 
 
                                         else:
