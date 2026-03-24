@@ -40,6 +40,7 @@ class AccountMove(models.Model):
     ('importacion', 'Importación'),('exportacion','Exportación'),
     ('factura_especial', 'Factura especial')],
         string="Tipo de factura")
+    lugar_expedicion = fields.Char('Lugar de expedición')
     consignatario_destinatario_id = fields.Many2one('res.partner', string="Consignatario o Destinatario")
     codigo_consignatario_destinatario = fields.Char('Código consignatario o destinatario')
     comprador_id = fields.Many2one('res.partner', string="Comprador")
