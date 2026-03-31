@@ -21,11 +21,20 @@
             </field>
         </record>
 
+        <record id="action_libro_bancos" model="ir.actions.report">
+            <field name="name">Libro de bancos</field>
+            <field name="model">account_gt.libro_bancos.wizard</field>
+            <field name="report_type">qweb-pdf</field>
+            <field name="report_name">account_gt.reporte_libro_bancos</field>
+            <field name="report_file">account_gt.reporte_libro_bancos</field>
+            <field name="print_report_name">'Libro de bancos'</field>
+        </record>
+        
         <record id="launch_account_gt_libro_bancos" model="ir.actions.act_window">
             <field name="name">Libro de bancos</field>
             <field name="res_model">account_gt.libro_bancos.wizard</field>
             <field name="view_mode">form</field>
-            <field name="view_id" ref="account_gt_libro_compras_form_view"/>
+            <field name="view_id" ref="account_gt_libro_bancos_form_view"/>
             <field name="target">new</field>
             <field name="binding_model_id" ref="account.model_account_account"/>
         </record>
