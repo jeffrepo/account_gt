@@ -38,15 +38,16 @@ class Liquidacion(models.Model):
     pago_relacion_ids = fields.One2many('account.payment','liquidacion_id' ,'Pagos', tracking=True)
     total_factura = fields.Float('Total factura')
 
-    @api.model
-    def create(self, vals):
-        if vals.get('name', _('New')) == _('New'):
-            seq_date = None
-            if 'company_id' in vals:
-                vals['name'] = self.env['ir.sequence'].with_context(force_company=vals['company_id']).next_by_code(
-                    'account_gt.liquidacion', sequence_date=seq_date) or _('New')
-            else:
-                vals['name'] = self.env['ir.sequence'].next_by_code('account_gt.liquidacion', sequence_date=seq_date) or _('New')
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if vals.get('name', _('New')) == _('New'):
+                seq_date = None
+                if 'company_id' in vals:
+                    vals['name'] = self.env['ir.sequence'].with_context(force_company=vals['company_id']).next_by_code(
+                        'account_gt.liquidacion', sequence_date=seq_date) or _('New')
+                else:
+                    vals['name'] = self.env['ir.sequence'].next_by_code('account_gt.liquidacion', sequence_date=seq_date) or _('New')
 
         result = super(Liquidacion, self).create(vals)
         return result
