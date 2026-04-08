@@ -75,14 +75,17 @@ class Liquidacion(models.Model):
             if dato.pago_relacion_ids:
                 moneda_pago = dato.pago_relacion_ids[0].currency_id
                 for linea in dato.pago_relacion_ids:
-                    for l in linea.line_ids:
+                    if not linea.move_id:
+                        raise UserError('El pago %s no tiene asiento contable generado.' % (linea.name))
+
+                    for l in linea.move_id.line_ids:
                         if l.account_id.reconcile and l.account_id.account_type == 'liability_payable':
                             if not l.reconciled:
                                 total -= l.debit - l.credit
                                 lineas.append(l)
+                                logging.warning(l.debit - l.credit)
                             else:
                                 raise UserError('El Pago %s ya esta conciliado' % (linea.name))
-
             nuevas_lineas = []
             for linea in lineas:
                 nuevas_lineas.append((0, 0, {
