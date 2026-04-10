@@ -9,11 +9,18 @@ class LibroBancos(models.AbstractModel):
 
 
     def saldo_inicial(self, datos):
-        account_move_line_ids = self.env['account.move.line'].search([('account_id','=',datos['cuenta_id'][0]), ('date','<',datos['fecha_inicio'])], order='date')
+        account_move_line_ids = self.env['account.move.line'].search([('account_id','=',datos['cuenta_id'][0]), ('date','<',datos['fecha_inicio']), ('parent_state','=','posted')], order='date')
         saldo = 0
         if account_move_line_ids:
             for movimiento in account_move_line_ids:
-                saldo += movimiento.debit - movimiento.credit
+                debito = 0
+                credito = 0
+                if movimiento.amount_currency > 0:
+                    debito = movimiento.amount_currency
+                else:
+                    credito = (movimiento.amount_currency * -1)
+                saldo += debito - credito
+        logging.warn(saldo)
         return saldo
 
     def moneda_cuenta(self, datos):
