@@ -9,6 +9,7 @@
             <field name="arch" type="xml">
                 <field name="journal_id" position="after">
                     <field name="descripcion"/>
+                    <field name="liquidacion_id"/>
                 </field>
             </field>
         </record>
