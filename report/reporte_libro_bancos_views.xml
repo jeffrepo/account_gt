@@ -1,84 +1,72 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <data>
-
         <template id="reporte_libro_bancos">
             <t t-call="web.html_container">
-
-                    <t t-call="web.external_layout">
-                        <div class="page">
-                            <center>
-                                <h4>Libro de banco</h4> <br/><br/><br/>
-                            </center>
-                            <table class="table table-sm o_main_table">
-                                <tbody>
-                                    <tr>
-                                        <td><b>Cuenta</b></td>
-                                        <td><span t-esc="data['cuenta_id'][1]"/></td>
-                                        <td><b>Fecha inicio:</b></td>
-                                        <td><span t-esc="data['fecha_inicio']" t-options='{"widget": "date"}'/></td>
-                                        <td><b>Fecha fin:</b></td>
-                                        <td><span t-esc="data['fecha_fin']" t-options='{"widget": "date"}'/></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                            <table class="table table-sm o_main_table">
-                                <thead>
-                                    <tr>
-                                        <th class="text-left">Fecha</th>
-                                        <th  class="text-left">Nombre</th>
-                                        <th  class="text-left">Descripcion</th>
-                                        <th  class="text-right">Debe</th>
-                                        <th  class="text-right">Haber</th>
-                                        <th  class="text-right">Saldo</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td></td>
-                                        <td></td>
-                                        <td>Saldo Inicial</td>
-                                        <td></td>
-                                        <td></td>
-                                        <td class="text-right">
-                                            <span t-esc="saldo_inicial(data)" t-options="{'widget': 'monetary', 'display_currency': user.company_id.currency_id}"/>
-                                        </td>
-                                    </tr>
-                                    <tr t-foreach="movimientos(data)" t-as="m">
-                                        <td>
-                                            <span t-esc="m['fecha']" t-options='{"widget": "date"}'/>
-                                        </td>
-                                        <td>
-                                            <span t-esc="m['nombre']"/>
-                                        </td>
-                                        <td>
-                                            <span t-esc="m['descripcion']"/>
-                                        </td>
-                                        <td class="text-right">
-                                             <span t-esc="m['debito']" t-options="{'widget': 'monetary', 'display_currency': user.company_id.currency_id}"/>
-                                        </td>
-                                        <td class="text-right">
-                                            <span t-esc="m['credito']" t-options="{'widget': 'monetary', 'display_currency': user.company_id.currency_id}"/>
-                                        </td>
-                                        <td class="text-right">
-                                            <span t-esc="m['saldo']" t-options="{'widget': 'monetary', 'display_currency': user.company_id.currency_id}"/>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-
-                            <!-- <h2 t-field="doc.name"/>
-                            <p>From <span t-field="doc.start_date"/> to <span t-field="doc.end_date"/></p>
-                            <h3>Attendees:</h3>
-                            <ul>
-                                <t t-foreach="doc.attendee_ids" t-as="attendee">
-                                    <li><span t-field="attendee.name"/></li>
-                                </t>
-                            </ul> -->
-                        </div>
-                    </t>
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <center>
+                            <h4>Libro de banco</h4> <br/><br/><br/>
+                        </center>
+                        <table class="table table-sm o_main_table">
+                            <tbody>
+                                <tr>
+                                    <td><b>Cuenta</b></td>
+                                    <td><span t-esc="data['cuenta_id'][1]"/></td>
+                                    <td><b>Fecha inicio:</b></td>
+                                    <td><span t-esc="data['fecha_inicio']" t-options='{"widget": "date"}'/></td>
+                                    <td><b>Fecha fin:</b></td>
+                                    <td><span t-esc="data['fecha_fin']" t-options='{"widget": "date"}'/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <table class="table table-sm o_main_table">
+                            <thead>
+                                <tr>
+                                    <th class="text-left">Fecha</th>
+                                    <th  class="text-left">Nombre</th>
+                                    <th  class="text-left">Descripcion</th>
+                                    <th  class="text-right">Debe</th>
+                                    <th  class="text-right">Haber</th>
+                                    <th  class="text-right">Saldo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td></td>
+                                    <td></td>
+                                    <td>Saldo Inicial</td>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="text-right">
+                                        <span t-esc="saldo_inicial(data)" t-options="{'widget': 'monetary', 'display_currency': moneda_cuenta(data)}"/>
+                                    </td>
+                                </tr>
+                                <tr t-foreach="movimientos(data)" t-as="m">
+                                    <td>
+                                        <span t-esc="m['fecha']" t-options='{"widget": "date"}'/>
+                                    </td>
+                                    <td>
+                                        <span t-esc="m['nombre']"/>
+                                    </td>
+                                    <td>
+                                        <span t-esc="m['descripcion']"/>
+                                    </td>
+                                    <td class="text-right">
+                                         <span t-esc="m['debito']" t-options="{'widget': 'monetary', 'display_currency': m['moneda']}"/>
+                                    </td>
+                                    <td class="text-right">
+                                        <span t-esc="m['credito']" t-options="{'widget': 'monetary', 'display_currency': m['moneda']}"/>
+                                    </td>
+                                    <td class="text-right">
+                                        <span t-esc="m['saldo']" t-options="{'widget': 'monetary', 'display_currency': m['moneda']}"/>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </t>
             </t>
         </template>
-
     </data>
 </odoo>

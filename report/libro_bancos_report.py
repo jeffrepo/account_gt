@@ -14,8 +14,13 @@ class LibroBancos(models.AbstractModel):
         if account_move_line_ids:
             for movimiento in account_move_line_ids:
                 saldo += movimiento.debit - movimiento.credit
-        logging.warn(saldo)
         return saldo
+
+    def moneda_cuenta(self, datos):
+        moneda = False
+        account_account = self.env['account.account'].search([('id','=',datos['cuenta_id'][0])])
+        moneda = account_account.currency_id if account_account.currency_id else account_account.company_id.currency_id
+        return moneda
 
     def movimientos(self, datos):
         moves = []
@@ -29,8 +34,8 @@ class LibroBancos(models.AbstractModel):
                 'descripcion': (movimiento.ref if movimiento.ref else ''),
                 'debito': movimiento.debit,
                 'credito': movimiento.credit,
+                'moneda': movimiento.currency_id if movimiento.currency_id else movimiento.company_id.currency_id,
                 'saldo': 0,
-                # 'moneda': linea.company_id.currency_id,
             }
             moves.append(mov)
 
@@ -40,7 +45,6 @@ class LibroBancos(models.AbstractModel):
             saldo = saldo + m['debito'] - m['credito']
             m['saldo'] = saldo
 
-        logging.warn(moves)
         return moves
 
 
@@ -49,7 +53,6 @@ class LibroBancos(models.AbstractModel):
     def _get_report_values(self, docids, data=None):
         model = self.env.context.get('active_model')
         docs = self.env[model].browse(self.env.context.get('active_ids', []))
-        logging.warn(data)
         return {
             'doc_ids': self.ids,
             'doc_model': model,
@@ -57,6 +60,7 @@ class LibroBancos(models.AbstractModel):
             'docs': docs,
             'movimientos': self.movimientos,
             'saldo_inicial': self.saldo_inicial,
+            'moneda_cuenta': self.moneda_cuenta,
             # 'direccion': diario.direccion and diario.direccion.street,
         }
 
