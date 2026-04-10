@@ -24,16 +24,23 @@ class LibroBancos(models.AbstractModel):
 
     def movimientos(self, datos):
         moves = []
-        account_move_line_ids = self.env['account.move.line'].search([('account_id','=',datos['cuenta_id'][0]), ('date','>=',datos['fecha_inicio']), ('date','<=',datos['fecha_fin'])], order='date')
+        account_move_line_ids = self.env['account.move.line'].search([('account_id','=',datos['cuenta_id'][0]), ('date','>=',datos['fecha_inicio']), ('date','<=',datos['fecha_fin']), ('parent_state','=','posted')], order='date')
         for movimiento in account_move_line_ids:
-
+            debito = 0
+            credito = 0
+            if movimiento.amount_currency > 0:
+                debito = movimiento.amount_currency
+            else:
+                credito = movimiento.amount_currency * -1
             mov = {
                 'fecha': movimiento.date,
+                'transaccion': movimiento.move_id.journal_id.name,
+                'numero_cheque': movimiento.move_id.payment_ids[0].check_number if movimiento.move_id.payment_ids else '',
                 # 'documento': movimiento.move_id.name if movimiento.move_id else '',
                 'nombre': movimiento.partner_id.name if movimiento.partner_id else '',
                 'descripcion': (movimiento.ref if movimiento.ref else ''),
-                'debito': movimiento.debit,
-                'credito': movimiento.credit,
+                'debito': debito,
+                'credito': credito,
                 'moneda': movimiento.currency_id if movimiento.currency_id else movimiento.company_id.currency_id,
                 'saldo': 0,
             }
@@ -44,7 +51,6 @@ class LibroBancos(models.AbstractModel):
         for m in moves:
             saldo = saldo + m['debito'] - m['credito']
             m['saldo'] = saldo
-
         return moves
 
 
