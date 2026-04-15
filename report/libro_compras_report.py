@@ -309,11 +309,13 @@ class LibroCompras(models.AbstractModel):
                                                 dic['importacion'] += monto_convertir
 
                                             else:
-                                                if linea.product_id.is_storable == True:
-                                                    dic['compra'] += monto_convertir
+                                                if 'is_storable' in self.env['product.product']._fields:
+                                                    if linea.product_id.is_storable == True:
+                                                        dic['compra'] += monto_convertir
+                                                    else:
+                                                        dic['servicio'] +=  monto_convertir
                                                 else:
                                                     dic['servicio'] +=  monto_convertir
-
 
 
                                             if compra.partner_id.pequenio_contribuyente:

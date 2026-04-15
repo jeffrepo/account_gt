@@ -299,18 +299,22 @@ class LibroVentas(models.AbstractModel):
                                         elif compra.tipo_factura == 'importacion':
                                             dic['importacion'] += linea.price_subtotal
                                         else:
-                                            if linea.product_id.is_storable:
-                                                dic['compra'] += linea.price_subtotal
+                                            if 'is_storable' in self.env['product.product']._fields:
+                                                if linea.product_id.is_storable:
+                                                    dic['compra'] += linea.price_subtotal
+                                                else:
+                                                    dic['servicio'] +=  linea.price_subtotal
                                             else:
                                                 dic['servicio'] +=  linea.price_subtotal
 
-
                                     else:
-                                        if linea.product_id.is_storable:
-                                            dic['compra_exento'] += linea.price_total
+                                        if 'is_storable' in self.env['product.product']._fields:
+                                            if linea.product_id.is_storable:
+                                                dic['compra_exento'] += linea.price_total
+                                            else:
+                                                dic['servicio_exento'] +=  linea.price_total
                                         else:
                                             dic['servicio_exento'] +=  linea.price_total
-
 
                         dic['total'] = dic['compra'] + dic['servicio'] + dic['compra_exento'] + dic['servicio_exento'] + dic['importacion'] + dic['iva'] + dic['pequenio']
 
