@@ -277,7 +277,13 @@ class LibroCompras(models.AbstractModel):
                                     if ((linea.product_id) and (('COMISION POR SERVICIOS' not in linea.product_id.name) or ('COMISIONES BANCARIAS' not in linea.product_id.name) or ('Servicios y Comisiones' not in linea.product_id.name))):
                                         if len(linea.tax_ids) > 0:
                                             logging.warning(linea.tax_ids)
-                                            monto_convertir_precio = compra.currency_id.with_context(date=compra.invoice_date).compute(linea.price_unit, compra.company_id.currency_id)
+                                            monto_convertir_precio = compra.currency_id._convert(
+                                                linea.price_unit,
+                                                compra.company_id.currency_id,
+                                                compra.company_id,
+                                                compra.invoice_date or compra.date
+                                            )
+
 
                                             r = linea.tax_ids.compute_all(monto_convertir_precio, currency=compra.currency_id, quantity=linea.quantity, product=linea.product_id, partner=compra.partner_id)
                                             if compra.id == 239:
@@ -287,7 +293,12 @@ class LibroCompras(models.AbstractModel):
                                                 if 'IVA' in i['name']:
                                                     dic['iva'] += i['amount']
 
-                                            monto_convertir = compra.currency_id.with_context(date=compra.invoice_date).compute(linea.price_subtotal, compra.company_id.currency_id)
+                                            monto_convertir = compra.currency_id._convert(
+                                                linea.price_subtotal,
+                                                compra.company_id.currency_id,
+                                                compra.company_id,
+                                                compra.invoice_date or compra.date
+                                            )
 
                                             if compra.tipo_factura == 'varios':
                                                 if linea.product_id.type == 'product':
@@ -314,7 +325,12 @@ class LibroCompras(models.AbstractModel):
                                             # dic['total']
                                             
                                         else:
-                                            monto_convertir = compra.currency_id.with_context(date=compra.invoice_date).compute(linea.price_total, compra.company_id.currency_id)
+                                            monto_convertir = compra.currency_id._convert(
+                                                linea.price_total,
+                                                compra.company_id.currency_id,
+                                                compra.company_id,
+                                                compra.invoice_date or compra.date
+                                            )
 
                                             if compra.tipo_factura == 'varios':
                                                 if linea.product_id.type == 'product':
