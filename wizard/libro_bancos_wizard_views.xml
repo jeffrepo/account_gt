@@ -38,8 +38,8 @@
             <field name="target">new</field>
             <field name="binding_model_id" ref="account.model_account_account"/>
         </record>
-
-        <menuitem action="launch_account_gt_libro_bancos" id="menu_reporte_libro_bancos" parent="account.menu_finance_reports"/>
+        
+        <menuitem action="launch_account_gt_libro_bancos" id="menu_reporte_libro_bancos" parent="account_gt.menu_reporte_libros_gt"/>
 
     </data>
 </odoo>

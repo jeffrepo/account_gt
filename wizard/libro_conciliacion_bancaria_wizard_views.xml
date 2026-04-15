@@ -22,14 +22,17 @@
             </field>
         </record>
 
-        <act_window id="launch_account_gt_libro_conciliacion_bancaria"
-                    name="Libro conciliacion bancaria"
-                    binding_model="account.account"
-                    res_model="account_gt.libro_conciliacion_bancaria.wizard"
-                    view_mode="form"
-                    target="new"/>
+        <record id="launch_account_gt_libro_conciliacion_bancaria" model="ir.actions.act_window">
+            <field name="name">"Libro conciliacion bancaria</field>
+            <field name="res_model">account_gt.libro_conciliacion_bancaria.wizard</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="account_gt_libro_conciliacion_bancaria_form_view"/>
+            <field name="target">new</field>
+            <field name="binding_model_id" ref="account.model_account_account"/>
+        </record>
+        
 
-        <menuitem action="launch_account_gt_libro_conciliacion_bancaria" id="menu_reporte_libro_conciliacion_bancaria" parent="account.menu_finance_reports"/>
+        <menuitem action="launch_account_gt_libro_conciliacion_bancaria" id="menu_reporte_libro_conciliacion_bancaria" parent="account_gt.menu_reporte_libros_gt"/>
 
     </data>
 </odoo>

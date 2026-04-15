@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from odoo import models, fields, api, _
-from odoo.exceptions import UserError, ValidationError, except_orm
+from odoo.exceptions import UserError, ValidationError
 
 class ConciliacionBancariaWizard(models.TransientModel):
     _name = 'account_gt.conciliacion_bancaria.wizard'
