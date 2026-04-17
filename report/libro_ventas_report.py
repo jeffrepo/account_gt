@@ -226,9 +226,6 @@ class LibroVentas(models.AbstractModel):
 
                                         #monto_convertir_precio = compra.currency_id.with_context(date=compra.invoice_date)._convert(precio_unitario, compra.company_id.currency_id)
                                         monto_convertir_precio = precio_unitario / compra.invoice_currency_rate
-                                        logging.warning("----compra: " + str(compra.name))
-                                        logging.warning(compra.invoice_currency_rate)
-                                        logging.warning("---- monto1:" + str(monto_convertir_precio))
                                         r = linea.tax_ids.compute_all(monto_convertir_precio, currency=compra.currency_id, quantity=linea.quantity, product=linea.product_id, partner=compra.partner_id)
 
                                         iva_cero = False
@@ -236,15 +233,18 @@ class LibroVentas(models.AbstractModel):
                                             if 'IVA por Pagar' in i['name']:
                                                 dic['iva'] += i['amount']
                                             logging.warn(i)
-                                            
+
                                             if 'IVA 29-89' == i['name']:
                                                 iva_cero = True
-                                                
+
                                         monto_convertir = linea.price_subtotal / compra.invoice_currency_rate
                                         logging.warning("---- monto 2:" + str(monto_convertir))
                                         if compra.tipo_factura in ['varios','compra']:
-                                            if linea.product_id.is_storable:
-                                                dic['compra'] += monto_convertir
+                                            if 'is_storable' in self.env['product.product']._fields:
+                                                if linea.product_id.is_storable:
+                                                    dic['compra'] += monto_convertir
+                                                else:
+                                                    dic['servicio'] +=  monto_convertir
                                             else:
                                                 dic['servicio'] +=  monto_convertir
                                         elif compra.journal_id.factura_exportacion:
@@ -252,20 +252,25 @@ class LibroVentas(models.AbstractModel):
 
                                         else:
                                             if iva_cero:
-                                                if linea.product_id.is_storable:
-                                                    dic['compra_exento'] += linea.price_total
+                                                if 'is_storable' in self.env['product.product']._fields:
+                                                    if linea.product_id.is_storable:
+                                                        dic['compra_exento'] += linea.price_total
+                                                    else:
+                                                        dic['servicio_exento'] +=  linea.price_total
                                                 else:
                                                     dic['servicio_exento'] +=  linea.price_total
                                             else:
-                                                if linea.product_id.is_storable:
-                                                    dic['compra'] += monto_convertir
+                                                if 'is_storable' in self.env['product.product']._fields:
+                                                    if linea.product_id.is_storable:
+                                                        dic['compra'] += monto_convertir
+                                                    else:
+                                                        dic['servicio'] +=  monto_convertir
                                                 else:
                                                     dic['servicio'] +=  monto_convertir
 
                                     else:
                                         #monto_convertir = compra.currency_id.with_context(date=compra.invoice_date)._convert(linea.price_total, compra.company_id.currency_id)
                                         monto_convertir = linea.price_subtotal / compra.invoice_currency_rate
-                                        logging.warning("---- monto:" + str(monto_convertir))
                                         if compra.tipo_factura == 'varios':
                                             if 'is_storable' in self.env['product.product']._fields:
                                                 if linea.product_id.is_storable:
@@ -322,18 +327,21 @@ class LibroVentas(models.AbstractModel):
                                         elif compra.tipo_factura == 'importacion':
                                             dic['importacion'] += linea.price_subtotal
                                         else:
-                                            if linea.product_id.is_storable:
-                                                dic['compra'] += linea.price_subtotal
+                                            if 'is_storable' in self.env['product.product']._fields:
+                                                if linea.product_id.is_storable:
+                                                    dic['compra'] += linea.price_subtotal
+                                                else:
+                                                    dic['servicio'] +=  linea.price_subtotal
                                             else:
                                                 dic['servicio'] +=  linea.price_subtotal
-
-
                                     else:
-                                        if linea.product_id.is_storable:
-                                            dic['compra_exento'] += linea.price_total
+                                        if 'is_storable' in self.env['product.product']._fields:
+                                            if linea.product_id.is_storable:
+                                                dic['compra_exento'] += linea.price_total
+                                            else:
+                                                dic['servicio_exento'] +=  linea.price_total
                                         else:
                                             dic['servicio_exento'] +=  linea.price_total
-
 
                         dic['total'] = dic['compra'] + dic['servicio'] + dic['compra_exento'] + dic['servicio_exento'] + dic['importacion'] + dic['iva'] + dic['pequenio']
 
