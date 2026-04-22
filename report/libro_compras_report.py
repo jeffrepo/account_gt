@@ -384,6 +384,8 @@ class LibroCompras(models.AbstractModel):
                                                 dic['combustible']= compra.amount_untaxed
                                             elif compra.tipo_factura == 'compra':
                                                 dic['compra'] += linea.price_subtotal
+                                            elif compra.tipo_factura == 'servicio':
+                                                dic['servicio'] += linea.price_subtotal
                                             else:
                                                 iva_prod=0
                                                 if linea.product_id.es_activo:
@@ -400,7 +402,8 @@ class LibroCompras(models.AbstractModel):
                                                             dic['compra'] +=  linea.price_subtotal
                                                         elif linea.product_id.type != 'consu':
                                                             dic['servicio'] +=  linea.price_subtotal
-
+                                                        else:
+                                                            dic['servicio'] +=  linea.price_subtotal
                                             if compra.partner_id.pequenio_contribuyente:
                                                 dic['compra'] = 0
                                                 dic['servicio'] = 0
