@@ -362,7 +362,8 @@ class LibroCompras(models.AbstractModel):
 
                                             for i in r['taxes']:
                                                 if 'IVA' in i['name']:
-                                                    dic['iva'] += i['amount']
+                                                    if compra.partner_id.pequenio_contribuyente == False:
+                                                        dic['iva'] += i['amount']
                                             logging.warning('Tal vez else')
 
                                             if compra.tipo_factura == 'varios':
