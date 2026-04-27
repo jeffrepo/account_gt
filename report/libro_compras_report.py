@@ -361,7 +361,7 @@ class LibroCompras(models.AbstractModel):
                                             r = linea.tax_ids.compute_all(linea.price_unit, currency=compra.currency_id, quantity=linea.quantity, product=linea.product_id, partner=compra.partner_id)
 
                                             for i in r['taxes']:
-                                                if 'IVA' in i['name']:
+                                                if 'IVA por' in i['name']:
                                                     if compra.partner_id.pequenio_contribuyente == False:
                                                         dic['iva'] += i['amount']
                                             logging.warning('Tal vez else')
