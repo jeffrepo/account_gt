@@ -456,7 +456,10 @@ class LibroCompras(models.AbstractModel):
                         total['activo'] += dic['activo']
                         total['iva'] += dic['iva']
                         compras_lista.append(dic)
-                        dic['total'] = dic['activo'] + dic['combustible'] + dic['compra'] + dic['servicio'] + dic['compra_exento'] + dic['servicio_exento'] + dic['importacion'] + dic['iva'] + dic['pequenio']
+                        if compra.partner_id.pequenio_contribuyente:
+                            dic['total'] = dic['pequenio']
+                        else:
+                            dic['total'] = dic['activo'] + dic['combustible'] + dic['compra'] + dic['servicio'] + dic['compra_exento'] + dic['servicio_exento'] + dic['importacion'] + dic['iva'] + dic['pequenio']
                         total['total'] += dic['total']
 
                     else:
