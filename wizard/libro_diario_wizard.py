@@ -19,8 +19,16 @@ class LibroDiarioWizard(models.TransientModel):
     movimientos_destino = fields.Selection([('posted', 'Todos los asientos validados'),
                                 ('all', 'Todos los asientos'),
                                 ], string='Movimientos destino', required=True, default='posted')
-
-
+    
+    def _xlsx_value(self, value):
+        if isinstance(value, dict):
+            return (
+                value.get('es_GT')
+                or value.get('en_US')
+                or next(iter(value.values()), '')
+            )
+        return value or ''
+    
     def print_report(self):
         data = {
             'ids':[],
@@ -78,7 +86,7 @@ class LibroDiarioWizard(models.TransientModel):
                                 hoja.write(fila, 0, '')
                                 hoja.write(fila, 1, '')
 
-                            hoja.write(fila, 2, m['codigo'])
+                            hoja.write(fila, 2, self._xlsx_value(m['codigo']))
                             hoja.write(fila, 3, m['nombre_cuenta']["es_GT"])
                             hoja.write(fila, 4, m['descripcion'])
                             hoja.write(fila, 5, m['debe'], formato_moneda)
@@ -119,11 +127,12 @@ class LibroDiarioWizard(models.TransientModel):
                                 if llave_diario != 'nombre_mes':
                                     if llave_diario != 'total_debe':
                                         if llave_diario != 'total_haber':
-                                            hoja.write(fila, 0,reporte_data_consolidado[llave_mes][llave_diario]['diario'])
+                                            hoja.write(fila, 0, self._xlsx_value(reporte_data_consolidado[llave_mes][llave_diario]['diario']))
                                             fila += 1
                                             for m_a in reporte_data_consolidado[llave_mes][llave_diario]['movimientos_agrupados']:
-                                                hoja.write(fila, 0, reporte_data_consolidado[llave_mes][llave_diario]['movimientos_agrupados'][m_a]['codigo'])
-                                                hoja.write(fila, 1, reporte_data_consolidado[llave_mes][llave_diario]['movimientos_agrupados'][m_a]['nombre_cuenta'])
+                                                mov = reporte_data_consolidado[llave_mes][llave_diario]['movimientos_agrupados'][m_a]
+                                                hoja.write(fila, 0, self._xlsx_value(mov['codigo']))
+                                                hoja.write(fila, 1, self._xlsx_value(mov['nombre_cuenta']))
                                                 hoja.write(fila, 2, reporte_data_consolidado[llave_mes][llave_diario]['movimientos_agrupados'][m_a]['debe'], formato_moneda)
                                                 hoja.write(fila, 3, reporte_data_consolidado[llave_mes][llave_diario]['movimientos_agrupados'][m_a]['haber'], formato_moneda)
                                                 fila += 1
@@ -131,7 +140,7 @@ class LibroDiarioWizard(models.TransientModel):
                                             hoja.write(fila, 0, '')
                                             hoja.write(fila, 1, 'Total diario')
                                             hoja.write(fila, 2, reporte_data_consolidado[llave_mes][llave_diario]['total_debe'], formato_moneda)
-                                            hoja.write(fila, 3, reporte_data_consolidado[llave_mes][llave_diario]['total_debe'], formato_moneda)
+                                            hoja.write(fila, 3, reporte_data_consolidado[llave_mes][llave_diario]['total_haber'], formato_moneda)
 
                                             fila += 1
 
@@ -145,7 +154,7 @@ class LibroDiarioWizard(models.TransientModel):
                 hoja.write(fila, 0, '')
                 hoja.write(fila, 1, 'Total general')
                 hoja.write(fila, 2, reporte_data_consolidado['total_debe'], formato_moneda)
-                hoja.write(fila, 2, reporte_data_consolidado['total_haber'], formato_moneda)
+                hoja.write(fila, 3, reporte_data_consolidado['total_haber'], formato_moneda)
                             
                                             
 
