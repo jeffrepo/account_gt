@@ -24,7 +24,11 @@
                             <field name="incoterm_exp"/>
                         </group>
                     </page>
-                </page>                
+                </page>
+                <xpath expr="//field[@name='date']" position="attributes">
+                    <attribute name="invisible">False</attribute>
+                    <attribute name="readonly">state != 'draft'</attribute>
+                </xpath>              
             </field>
         </record>
 
