@@ -12,7 +12,7 @@
     'website': "",
 
     'category': 'Uncategorized',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.0.1',
 
     'depends': ['account','account_reports','base'],
 
@@ -20,7 +20,7 @@
         'security/ir.model.access.csv',
         'report/report_views.xml',
         'report/reporte_liqudiacion.xml',
-        #'views/report.xml',
+        'views/report.xml',
         'views/res_partner_views.xml',
         'views/account_gt_views.xml',
         'views/account_move_views.xml',
