@@ -12,7 +12,7 @@
     'website': "",
 
     'category': 'Uncategorized',
-    'version': '19.0.1.0.2',
+    'version': '19.0.1.0.3',
 
     'depends': ['account','account_reports','base'],
 

@@ -8,6 +8,12 @@ class LibroConciliacionBancaria(models.AbstractModel):
     _name = 'report.account_gt.reporte_libro_conciliacion_bancaria'
 
     def _get_report_currency(self, datos):
+        selected_currency = datos.get('currency_id')
+        if selected_currency:
+            currency_id = (selected_currency[0]
+                           if isinstance(selected_currency, (list, tuple))
+                           else selected_currency)
+            return self.env['res.currency'].browse(currency_id)
         account = self.env['account.account'].browse(datos['cuenta_id'][0])
         return account.currency_id or self.env.company.currency_id
 
@@ -19,7 +25,7 @@ class LibroConciliacionBancaria(models.AbstractModel):
             # A zero amount is valid for exchange difference entries.
             amount = line.amount_currency
         else:
-            # Historical entries may predate the account's currency setting.
+            # Convert other currencies at each movement's accounting date.
             amount = line.company_currency_id._convert(
                 line.balance, currency, line.company_id, line.date,
             )
