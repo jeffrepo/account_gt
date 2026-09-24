@@ -13,16 +13,17 @@ class LibroConciliacionBancariaWizard(models.TransientModel):
         domain=lambda self: [('company_ids', 'parent_of', self.env.company.id)],
     )
     currency_id = fields.Many2one(
-        'res.currency', string='Moneda', compute='_compute_currency_id',
+        'res.currency', string='Moneda del reporte', compute='_compute_currency_id',
+        store=True, readonly=False, precompute=True, required=True,
+        help='Se propone la moneda de la cuenta o de la compañía. '
+             'Puede seleccionar otra moneda para este reporte.',
     )
     saldo = fields.Monetary(
         'Saldo de cuenta', currency_field='currency_id',
-        help='Ingrese el saldo en la moneda indicada: la de la cuenta, '
-             'o la de la compañía si la cuenta no tiene moneda configurada.',
+        help='Ingrese el saldo en la moneda seleccionada para el reporte.',
     )
 
     @api.depends('cuenta_id.currency_id')
-    @api.depends_context('company')
     def _compute_currency_id(self):
         for wizard in self:
             wizard.currency_id = wizard.cuenta_id.currency_id or self.env.company.currency_id
