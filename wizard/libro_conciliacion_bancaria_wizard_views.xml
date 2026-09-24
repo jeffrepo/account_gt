@@ -11,6 +11,7 @@
                         <field name="fecha_inicio"/>
                         <field name="fecha_fin"/>
                         <field name="cuenta_id"/>
+                        <field name="currency_id" options="{'no_open': True}"/>
                         <field name="saldo"/>
                     </group>
                     <footer>
