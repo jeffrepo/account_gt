@@ -15,6 +15,10 @@
                                     <tr>
                                         <td><b>Cuenta</b></td>
                                         <td><span t-esc="data['cuenta_id'][1]"/></td>
+                                        <td><b>Moneda:</b></td>
+                                        <td><span t-esc="currency.name"/></td>
+                                    </tr>
+                                    <tr>
                                         <td><b>Fecha inicio:</b></td>
                                         <td><span t-esc="data['fecha_inicio']" t-options='{"widget": "date"}'/></td>
                                         <td><b>Fecha fin:</b></td>
@@ -42,8 +46,8 @@
                                             <td><span t-esc="m['documento']"/></td>
                                             <td><span t-esc="m['beneficiario']"/></td>
                                             <td><span t-esc="m['concepto']"/></td>
-                                            <td class="text-right"><span t-esc="m['credito']" t-options="{'widget': 'monetary', 'display_currency': user.company_id.currency_id}"/></td>
-                                            <td class="text-right"><span t-esc="m['debito']" t-options="{'widget': 'monetary', 'display_currency': user.company_id.currency_id}"/></td>
+                                            <td class="text-right"><span t-esc="m['credito']" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
+                                            <td class="text-right"><span t-esc="m['debito']" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
                                         </tr>
                                     </tbody>
                                 </t>
@@ -55,19 +59,19 @@
                                 <tbody>
                                     <tr>
                                         <td>(+) Saldo conciliado</td>
-                                        <td class="text-right"><span t-esc="documentos_conciliados(data)['saldo_conciliado'] + saldo_inicial(data)" t-options="{'widget': 'monetary', 'display_currency': user.company_id.currency_id}"/></td>
+                                        <td class="text-right"><span t-esc="documentos_conciliados(data)['saldo_conciliado'] + saldo_inicial(data)" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
                                     </tr>
                                     <tr>
                                         <td>(=) Total</td>
-                                        <td class="text-right"><span t-esc="documentos_conciliados(data)['saldo_conciliado'] + saldo_inicial(data)" t-options="{'widget': 'monetary', 'display_currency': user.company_id.currency_id}"/></td>
+                                        <td class="text-right"><span t-esc="documentos_conciliados(data)['saldo_conciliado'] + saldo_inicial(data)" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
                                     </tr>
                                     <tr>
                                         <td>(-) Saldo ingresado</td>
-                                        <td class="text-right"><span t-esc="data['saldo']" t-options="{'widget': 'monetary', 'display_currency': user.company_id.currency_id}"/></td>
+                                        <td class="text-right"><span t-esc="data['saldo']" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
                                     </tr>
                                     <tr>
                                         <td>(=) Diferencia</td>
-                                        <td class="text-right"><span t-esc="diferencia" t-options="{'widget': 'monetary', 'display_currency': user.company_id.currency_id}"/></td>
+                                        <td class="text-right"><span t-esc="diferencia" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -93,8 +97,8 @@
                                                 <td><span t-esc="m['documento']"/></td>
                                                 <td><span t-esc="m['beneficiario']"/></td>
                                                 <td><span t-esc="m['concepto']"/></td>
-                                                <td class="text-right"><span t-esc="m['credito']" t-options="{'widget': 'monetary', 'display_currency': user.company_id.currency_id}"/></td>
-                                                <td class="text-right"><span t-esc="m['debito']" t-options="{'widget': 'monetary', 'display_currency': user.company_id.currency_id}"/></td>
+                                                <td class="text-right"><span t-esc="m['credito']" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
+                                                <td class="text-right"><span t-esc="m['debito']" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
                                             </tr>
                                         </tbody>
                                 </table>
