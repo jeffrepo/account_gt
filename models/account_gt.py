@@ -54,15 +54,13 @@ class Liquidacion(models.Model):
 
     def conciliar_liquidacion(self):
         move = False
-        moneda_factura = False
-        moneda_pago = False
 
         for dato in self:
             lineas = []
             total = 0
+            moneda_compania = dato.company_id.currency_id
 
             if dato.factura_relacion_ids:
-                moneda_factura = dato.factura_relacion_ids[0].currency_id
                 for linea in dato.factura_relacion_ids:
                     for l in linea.line_ids:
                         if l.account_id.account_type == 'liability_payable':
@@ -73,7 +71,6 @@ class Liquidacion(models.Model):
                                 raise UserError('La factura %s ya esta conciliada' % (linea.name))
 
             if dato.pago_relacion_ids:
-                moneda_pago = dato.pago_relacion_ids[0].currency_id
                 for linea in dato.pago_relacion_ids:
                     if not linea.move_id:
                         raise UserError('El pago %s no tiene asiento contable generado.' % (linea.name))
@@ -98,16 +95,20 @@ class Liquidacion(models.Model):
                     'date_maturity': dato.fecha,
                 }))
 
-            if total != 0 and moneda_factura.id != moneda_pago.id:
-                nuevas_lineas.append((0, 0, {
-                    'name': 'Diferencia de ' + dato.name,
-                    'debit': -1 * total if total < 0 else 0,
-                    'credit': total if total > 0 else 0,
-                    'account_id': dato.cuenta_id.id,
-                    'date_maturity': dato.fecha,
-                }))
-
-            if round(total, 2) != 0 and moneda_factura.name == 'USD' and moneda_pago.name == 'USD':
+            # Debit and credit are always expressed in the company currency.
+            total = moneda_compania.round(total)
+            if not moneda_compania.is_zero(total):
+                if not dato.cuenta_id:
+                    raise UserError(_(
+                        'La liquidacion %(liquidacion)s tiene una diferencia de '
+                        '%(diferencia)s %(moneda)s entre facturas y pagos. '
+                        'Revise los documentos incluidos o seleccione una '
+                        'Cuenta de desajuste para registrar esa diferencia.'
+                    ) % {
+                        'liquidacion': dato.name,
+                        'diferencia': total,
+                        'moneda': moneda_compania.name,
+                    })
                 nuevas_lineas.append((0, 0, {
                     'name': 'Diferencia de ' + dato.name,
                     'debit': -1 * total if total < 0 else 0,
