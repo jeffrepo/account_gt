@@ -75,14 +75,22 @@ class Liquidacion(models.Model):
                     if not linea.move_id:
                         raise UserError('El pago %s no tiene asiento contable generado.' % (linea.name))
 
-                    for l in linea.move_id.line_ids:
-                        if l.account_id.reconcile and l.account_id.account_type == 'liability_payable':
-                            if not l.reconciled:
-                                total -= l.debit - l.credit
-                                lineas.append(l)
-                                logging.warning(l.debit - l.credit)
-                            else:
-                                raise UserError('El Pago %s ya esta conciliado' % (linea.name))
+                    # Supplier payments may use an advance account instead of
+                    # a payable account. Include only the destination side.
+                    lineas_pago = linea.move_id.line_ids.filtered(
+                        lambda l: l.account_id == linea.destination_account_id
+                    )
+                    if not lineas_pago:
+                        raise UserError(_(
+                            'El pago %s no tiene apuntes en su cuenta de destino. '
+                            'Revise su asiento contable.'
+                        ) % linea.name)
+                    for l in lineas_pago:
+                        if not l.reconciled:
+                            total -= l.debit - l.credit
+                            lineas.append(l)
+                        else:
+                            raise UserError('El Pago %s ya esta conciliado' % (linea.name))
             nuevas_lineas = []
             for linea in lineas:
                 nuevas_lineas.append((0, 0, {
@@ -129,8 +137,11 @@ class Liquidacion(models.Model):
             if move and move.line_ids:
                 indice = 0
                 for linea in lineas:
-                    lineas_conciliar = linea | move.line_ids[indice]
-                    lineas_conciliar.reconcile()
+                    # A non-reconcilable advance is cleared by its opposite
+                    # journal item, without changing the account configuration.
+                    if linea.account_id.reconcile:
+                        lineas_conciliar = linea | move.line_ids[indice]
+                        lineas_conciliar.reconcile()
                     indice += 1
                 self.write({'move_id': move.id})
 
