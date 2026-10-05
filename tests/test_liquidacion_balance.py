@@ -52,9 +52,24 @@ class Currency:
         return self.round(amount) == 0
 
 
+class Lines(list):
+    def filtered(self, predicate):
+        return Lines(line for line in self if predicate(line))
+
+
 class Line(SimpleNamespace):
+    def __init__(self, **values):
+        super().__init__(**values)
+        self.reconciled_with = Mock()
+
     def __or__(self, other):
-        return SimpleNamespace(reconcile=Mock())
+        if not self.account_id.reconcile:
+            raise AssertionError('Cannot reconcile an account that disallows reconciliation')
+        if self.account_id.id != other.account_id:
+            raise AssertionError('Reconciliation must use the original account')
+        if self.debit != other.credit or self.credit != other.debit:
+            raise AssertionError('Reconciliation must pair each original line with its reversal')
+        return SimpleNamespace(reconcile=lambda: self.reconciled_with(other))
 
 
 class Liquidations(list):
@@ -115,7 +130,8 @@ class TestLiquidacionBalance(unittest.TestCase):
             ) for index, amount in enumerate(invoice_amounts, start=1)],
             pago_relacion_ids=[SimpleNamespace(
                 name='PAGO/001', currency_id=payment_currency or self.gtq,
-                move_id=SimpleNamespace(line_ids=[line('Pago', payment, 0.0)]),
+                destination_account_id=self.payable,
+                move_id=SimpleNamespace(line_ids=Lines([line('Pago', payment, 0.0)])),
             )],
         )
         records = Liquidations([record])
@@ -211,6 +227,84 @@ class TestLiquidacionBalance(unittest.TestCase):
         records = self.liquidations()
         records[0].pago_relacion_ids[0].move_id = False
         with self.assertRaisesRegex(UserError, 'no tiene asiento contable'):
+            Liquidacion.conciliar_liquidacion(records)
+        self.move_model.create.assert_not_called()
+
+    def add_advance_payment(self, records, amount, reconcile=False):
+        account = SimpleNamespace(
+            id=30, display_name='Anticipos por Liquidar',
+            account_type='asset_current', reconcile=reconcile,
+        )
+        # Non-reconcilable accounts have no residual, even while their balance
+        # is outstanding. The liquidation must offset the recorded balance.
+        advance = Line(
+            name='Anticipo', debit=amount, credit=0.0, account_id=account,
+            partner_id=SimpleNamespace(id=7), reconciled=False,
+            amount_residual=amount if reconcile else 0.0,
+        )
+        bank = Line(
+            name='Banco', debit=0.0, credit=amount,
+            account_id=SimpleNamespace(id=40, account_type='asset_cash', reconcile=True),
+            partner_id=SimpleNamespace(id=7), reconciled=False,
+        )
+        payment = SimpleNamespace(
+            name='PAGO/ANTICIPO', currency_id=self.gtq,
+            destination_account_id=account,
+            move_id=SimpleNamespace(line_ids=Lines([bank, advance])),
+        )
+        records[0].pago_relacion_ids.append(payment)
+        return payment, advance, bank
+
+    def test_payable_payment_and_non_reconcilable_advance_cover_invoices(self):
+        records = self.liquidations(invoice=2178.0, payment=486.05)
+        invoice_line = records[0].factura_relacion_ids[0].line_ids[0]
+        payable_line = records[0].pago_relacion_ids[0].move_id.line_ids[0]
+        payment, advance, bank = self.add_advance_payment(records, 1691.95)
+        Liquidacion.conciliar_liquidacion(records)
+        self.assertEqual(len(self.values()), 3)
+        self.assertEqual([
+            (command[2]['account_id'], command[2]['debit'], command[2]['credit'])
+            for command in self.values()
+        ], [(10, 2178.0, 0.0), (10, 0.0, 486.05), (30, 0.0, 1691.95)])
+        invoice_line.reconciled_with.assert_called_once()
+        payable_line.reconciled_with.assert_called_once()
+        advance.reconciled_with.assert_not_called()
+        bank.reconciled_with.assert_not_called()
+        self.assertFalse(payment.destination_account_id.reconcile)
+        self.assertEqual(advance.amount_residual, 0.0)
+        self.assertEqual(records[0].state, 'conciliado')
+
+    def test_non_reconcilable_advance_before_payable_preserves_line_pairing(self):
+        records = self.liquidations(invoice=2178.0, payment=486.05)
+        payable_line = records[0].pago_relacion_ids[0].move_id.line_ids[0]
+        _, advance, _ = self.add_advance_payment(records, 1691.95)
+        records[0].pago_relacion_ids.reverse()
+        Liquidacion.conciliar_liquidacion(records)
+        self.assertEqual(len(self.values()), 3)
+        payable_line.reconciled_with.assert_called_once()
+        advance.reconciled_with.assert_not_called()
+
+    def test_reconcilable_advance_is_reconciled_on_its_own_account(self):
+        records = self.liquidations(invoice=2178.0, payment=486.05)
+        _, advance, bank = self.add_advance_payment(records, 1691.95, reconcile=True)
+        Liquidacion.conciliar_liquidacion(records)
+        advance.reconciled_with.assert_called_once()
+        bank.reconciled_with.assert_not_called()
+
+    def test_missing_destination_line_is_rejected_even_with_adjustment_account(self):
+        records = self.liquidations(adjustment=True)
+        records[0].pago_relacion_ids[0].destination_account_id = SimpleNamespace(
+            id=50, display_name='Otra cuenta', account_type='asset_current', reconcile=False,
+        )
+        with self.assertRaisesRegex(UserError, 'PAGO/001.*cuenta de destino'):
+            Liquidacion.conciliar_liquidacion(records)
+        self.move_model.create.assert_not_called()
+
+    def test_already_reconciled_advance_is_rejected(self):
+        records = self.liquidations(invoice=2178.0, payment=486.05)
+        _, advance, _ = self.add_advance_payment(records, 1691.95, reconcile=True)
+        advance.reconciled = True
+        with self.assertRaisesRegex(UserError, 'PAGO/ANTICIPO.*ya esta conciliado'):
             Liquidacion.conciliar_liquidacion(records)
         self.move_model.create.assert_not_called()
 
